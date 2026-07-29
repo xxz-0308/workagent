@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { Search, FileText } from 'lucide-svelte';
   import AppleSelect from '../shared/AppleSelect.svelte';
 
@@ -15,17 +16,28 @@
   export let onFilterChange: () => void;
   export let onOpenChecklist: () => void;
 
+  let searchInputEl: HTMLInputElement;
+
+  onMount(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputEl?.focus();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   $: filteredVersions = selectedProductId
     ? versions.filter(v => v.product_id === selectedProductId)
     : versions;
 
-  // Concise Product Code options (e.g. CSP, CGP)
   $: productOptions = [
     { value: null, label: '全部产品' },
     ...products.map(p => ({ value: p.id, label: p.code.toUpperCase() }))
   ];
 
-  // Concise Version options (e.g. CSP 23.0, CGP 22.0)
   $: versionOptions = [
     { value: null, label: '全部版本' },
     ...filteredVersions.map(v => {
@@ -56,14 +68,16 @@
 
 <div class="filter-bar glass-panel">
   <div class="search-input-wrap">
-    <Search size={16} class="search-icon" />
+    <Search size={15} class="search-icon" />
     <input
       type="text"
-      placeholder="搜索已知问题标题、描述、根因或服务..."
+      bind:this={searchInputEl}
+      placeholder="搜索已知问题标题、描述、代码根因或服务..."
       bind:value={searchQuery}
       on:input={onFilterChange}
       class="apple-input search-input"
     />
+    <kbd class="kbd-badge mono-font">Ctrl K</kbd>
   </div>
 
   <div class="filters-group">
@@ -119,7 +133,7 @@
   <!-- Patch Checklist Button -->
   {#if selectedProductObj && selectedVersionObj}
     <button class="apple-button patch-checklist-btn" on:click={onOpenChecklist}>
-      <FileText size={15} />
+      <FileText size={14} />
       <span>查看 {selectedProductObj.code.toUpperCase()} {selectedVersionObj.version_name} 补丁提醒清单</span>
     </button>
   {/if}
@@ -129,12 +143,12 @@
   .filter-bar {
     position: relative;
     z-index: 50;
-    padding: 14px 18px;
+    padding: 12px 16px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
+    gap: 12px;
   }
 
   .search-input-wrap {
@@ -157,29 +171,45 @@
 
   .search-input {
     width: 100%;
-    height: 38px;
+    height: 36px;
     padding-left: 36px !important;
+    padding-right: 65px !important;
     box-sizing: border-box;
+    font-size: 13px;
+  }
+
+  .kbd-badge {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    pointer-events: none;
   }
 
   .filters-group {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
   .select-box {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-secondary);
-    height: 38px;
+    height: 36px;
   }
 
   .custom-select-wrap {
-    min-width: 140px;
+    min-width: 130px;
   }
 
   .label {
@@ -188,8 +218,10 @@
   }
 
   .patch-checklist-btn {
-    height: 38px;
+    height: 36px;
+    padding: 0 14px;
+    font-size: 12.5px;
     background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
-    box-shadow: 0 4px 12px rgba(175, 82, 222, 0.3);
+    box-shadow: 0 3px 10px rgba(94, 92, 230, 0.25);
   }
 </style>

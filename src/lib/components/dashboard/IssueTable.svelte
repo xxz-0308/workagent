@@ -11,7 +11,6 @@
   $: totalCount = issues.length;
   $: totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  // Reset to page 1 whenever total issues array changes
   $: if (issues) {
     if (currentPage > totalPages) {
       currentPage = 1;
@@ -34,16 +33,23 @@
     currentPage = 1;
   }
 
-  function getSeverityClass(sev: string) {
-    if (sev === 'high') return 'high';
-    if (sev === 'medium') return 'medium';
-    return 'low';
+  function getSeverityBadge(sev: string) {
+    if (sev === 'high') return { label: 'HIGH', class: 'high' };
+    if (sev === 'medium') return { label: 'MEDIUM', class: 'medium' };
+    return { label: 'LOW', class: 'low' };
   }
 
-  function getStatusBadge(status: string) {
+  function getStatusInfo(status: string) {
     if (status === 'closed') return { label: '已关闭', color: 'var(--status-low)' };
     if (status === 'located') return { label: '已定位', color: 'var(--accent-blue)' };
     return { label: '分析中', color: 'var(--status-medium)' };
+  }
+
+  function formatIssueKey(issue: any) {
+    const prefix = issue.product_summary && issue.product_summary !== '通用/全产品'
+      ? issue.product_summary.split(',')[0].trim().toUpperCase()
+      : 'ISSUE';
+    return `#${prefix}-${issue.id}`;
   }
 </script>
 
@@ -59,19 +65,21 @@
       <table class="issue-table">
         <thead>
           <tr>
-            <th style="width: 70px;">ID</th>
+            <th style="width: 95px;">ISSUE KEY</th>
             <th>问题标题 / 现象描述</th>
-            <th style="width: 140px;">所属产品</th>
-            <th style="width: 140px;">所属服务</th>
+            <th style="width: 130px;">所属产品</th>
+            <th style="width: 130px;">所属服务</th>
             <th style="width: 100px;">严重度</th>
-            <th style="width: 120px;">定位状态</th>
-            <th style="width: 120px; text-align: right;">操作</th>
+            <th style="width: 110px;">定位状态</th>
+            <th style="width: 110px; text-align: right;">操作</th>
           </tr>
         </thead>
         <tbody>
           {#each paginatedIssues as issue}
             <tr class="issue-row">
-              <td class="id-col">#{issue.id}</td>
+              <td class="id-col mono-font">
+                <span class="issue-key-badge">{formatIssueKey(issue)}</span>
+              </td>
               
               <td class="title-col" on:click={() => onSelectIssue(issue)}>
                 <div class="title-text">{issue.title}</div>
@@ -81,7 +89,7 @@
               </td>
 
               <td>
-                <span class="product-tag">{issue.product_summary || '通用/跨产品'}</span>
+                <span class="product-tag">{issue.product_summary || '通用/全产品'}</span>
               </td>
 
               <td>
@@ -89,24 +97,27 @@
               </td>
 
               <td>
-                <span class="severity-badge {getSeverityClass(issue.severity)}">
-                  {issue.severity.toUpperCase()}
+                <span class="severity-badge {getSeverityBadge(issue.severity).class}">
+                  {getSeverityBadge(issue.severity).label}
                 </span>
               </td>
 
               <td>
-                <span class="status-badge" style="color: {getStatusBadge(issue.status).color}; border-color: {getStatusBadge(issue.status).color}">
-                  {getStatusBadge(issue.status).label}
-                </span>
+                <div class="status-cell">
+                  <span class="status-dot" style="background: {getStatusInfo(issue.status).color}; box-shadow: 0 0 6px {getStatusInfo(issue.status).color};"></span>
+                  <span class="status-label" style="color: {getStatusInfo(issue.status).color}">
+                    {getStatusInfo(issue.status).label}
+                  </span>
+                </div>
               </td>
 
               <td class="actions-col">
                 <button class="action-btn detail-btn" on:click={() => onSelectIssue(issue)} title="查看详情与修改">
-                  <Eye size={14} />
+                  <Eye size={13} />
                   <span>详情</span>
                 </button>
                 <button class="action-btn delete-btn" on:click={() => onDeleteIssue(issue.id)} title="删除问题">
-                  <Trash2 size={14} />
+                  <Trash2 size={13} />
                 </button>
               </td>
             </tr>
@@ -120,7 +131,7 @@
   {#if totalCount > 0}
     <div class="pagination-footer">
       <div class="pagination-info">
-        共 <strong class="highlight-count">{totalCount}</strong> 条已知问题，显示第 {startIndex + 1} - {endIndex} 条
+        共 <strong class="highlight-count mono-font">{totalCount}</strong> 条已知问题，显示第 {startIndex + 1} - {endIndex} 条
       </div>
 
       <div class="pagination-controls">
@@ -130,7 +141,7 @@
           disabled={currentPage === 1}
           on:click={() => goToPage(currentPage - 1)}
         >
-          <ChevronLeft size={15} />
+          <ChevronLeft size={14} />
           <span>上一页</span>
         </button>
 
@@ -139,7 +150,7 @@
             {#if i + 1 === 1 || i + 1 === totalPages || (i + 1 >= currentPage - 2 && i + 1 <= currentPage + 2)}
               <button
                 type="button"
-                class="page-num {currentPage === i + 1 ? 'active' : ''}"
+                class="page-num mono-font {currentPage === i + 1 ? 'active' : ''}"
                 on:click={() => goToPage(i + 1)}
               >
                 {i + 1}
@@ -157,7 +168,7 @@
           on:click={() => goToPage(currentPage + 1)}
         >
           <span>下一页</span>
-          <ChevronRight size={15} />
+          <ChevronRight size={14} />
         </button>
       </div>
 
@@ -202,20 +213,23 @@
   .issue-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13.5px;
+    font-size: 13px;
   }
 
   th {
-    padding: 14px 16px;
+    padding: 12px 14px;
     text-align: left;
     color: var(--text-secondary);
     font-weight: 600;
+    font-size: 11.5px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
     border-bottom: 1px solid var(--glass-border);
     white-space: nowrap;
   }
 
   td {
-    padding: 14px 16px;
+    padding: 12px 14px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
   }
@@ -225,13 +239,21 @@
   }
 
   .issue-row:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.035);
   }
 
   .id-col {
-    font-weight: 700;
-    color: var(--accent-blue);
     white-space: nowrap;
+  }
+
+  .issue-key-badge {
+    color: var(--accent-blue);
+    background: rgba(10, 132, 255, 0.12);
+    border: 1px solid rgba(10, 132, 255, 0.25);
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    font-weight: 600;
   }
 
   .title-col {
@@ -245,62 +267,78 @@
   }
 
   .desc-snippet {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 3px;
+    margin-top: 2px;
   }
 
   .product-tag {
     background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: var(--radius-sm);
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     white-space: nowrap;
   }
 
   .service-tag {
-    background: rgba(175, 82, 222, 0.15);
+    background: rgba(191, 90, 242, 0.12);
+    border: 1px solid rgba(191, 90, 242, 0.25);
     color: var(--accent-purple);
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: var(--radius-sm);
-    font-size: 12px;
+    font-size: 11.5px;
     white-space: nowrap;
   }
 
   .severity-badge {
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: var(--radius-sm);
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
     white-space: nowrap;
+    border: 1px solid transparent;
   }
 
   .severity-badge.high {
-    background: rgba(255, 69, 58, 0.15);
+    background: rgba(255, 69, 58, 0.12);
     color: var(--status-high);
+    border-color: rgba(255, 69, 58, 0.25);
   }
 
   .severity-badge.medium {
-    background: rgba(255, 159, 10, 0.15);
+    background: rgba(255, 159, 10, 0.12);
     color: var(--status-medium);
+    border-color: rgba(255, 159, 10, 0.25);
   }
 
   .severity-badge.low {
-    background: rgba(48, 209, 88, 0.15);
+    background: rgba(48, 209, 88, 0.12);
     color: var(--status-low);
+    border-color: rgba(48, 209, 88, 0.25);
   }
 
-  .status-badge {
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid;
+  .status-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-label {
     font-size: 12px;
-    white-space: nowrap;
+    font-weight: 500;
   }
 
   .actions-col {
@@ -312,18 +350,18 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 6px 12px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
-    border: none;
-    font-size: 12.5px;
+    border: 1px solid transparent;
+    font-size: 12px;
     cursor: pointer;
     transition: all var(--transition-fast);
   }
 
   .detail-btn {
-    background: rgba(0, 122, 255, 0.15);
+    background: rgba(10, 132, 255, 0.12);
     color: var(--accent-blue);
-    border: 1px solid rgba(0, 122, 255, 0.3);
+    border-color: rgba(10, 132, 255, 0.25);
   }
 
   .detail-btn:hover {
@@ -334,60 +372,59 @@
   .delete-btn {
     background: transparent;
     color: var(--text-muted);
-    border: 1px solid transparent;
   }
 
   .delete-btn:hover {
-    background: rgba(255, 69, 58, 0.15);
+    background: rgba(255, 69, 58, 0.12);
     color: var(--status-high);
+    border-color: rgba(255, 69, 58, 0.25);
   }
 
-  /* Pagination Bar Styling */
+  /* Pagination Styling */
   .pagination-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 12px 18px;
+    padding: 10px 16px;
     border-top: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 0, 0, 0.12);
     user-select: none;
   }
 
   .pagination-info {
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-secondary);
   }
 
   .highlight-count {
     color: var(--accent-blue);
-    font-weight: 700;
   }
 
   .pagination-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .nav-btn {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 5px 12px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
     border: 1px solid var(--glass-border);
     color: var(--text-primary);
-    font-size: 12.5px;
+    font-size: 12px;
     cursor: pointer;
     transition: all var(--transition-fast);
   }
 
   .nav-btn:hover:not(:disabled) {
     background: var(--glass-bg-hover);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--glass-border-hover);
   }
 
   .nav-btn:disabled {
@@ -398,18 +435,18 @@
   .page-numbers {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
   }
 
   .page-num {
-    min-width: 30px;
-    height: 30px;
-    padding: 0 6px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 4px;
     border-radius: var(--radius-sm);
     background: transparent;
     border: 1px solid transparent;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -425,26 +462,25 @@
     color: #ffffff;
     font-weight: 700;
     border-color: var(--accent-blue);
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
   }
 
   .page-ellipsis {
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 12px;
     padding: 0 2px;
   }
 
   .page-size-selector {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
+    gap: 6px;
+    font-size: 12px;
     color: var(--text-secondary);
   }
 
   .size-select {
-    width: 100px;
-    padding: 4px 8px;
-    font-size: 12.5px;
+    width: 95px;
+    padding: 3px 6px;
+    font-size: 12px;
   }
 </style>

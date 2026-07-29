@@ -116,8 +116,13 @@
     <div class="modal-card glass-panel">
       <!-- Header -->
       <div class="modal-header">
+        <div class="window-controls">
+          <button class="win-dot close-dot" on:click={onClose} title="关闭"></button>
+          <span class="win-dot min-dot"></span>
+          <span class="win-dot max-dot"></span>
+        </div>
         <div class="header-left">
-          <span class="issue-id">#{activeData.id}</span>
+          <span class="issue-id mono-font">#{activeData.id}</span>
           <input
             type="text"
             class="apple-input title-edit-input"
@@ -127,10 +132,10 @@
         </div>
         <div class="header-actions">
           <button class="apple-button-secondary apple-button delete-btn" on:click={() => onDeleteIssue(activeData.id)}>
-            <Trash2 size={15} />
+            <Trash2 size={14} />
             <span>删除</span>
           </button>
-          <button class="close-btn" on:click={onClose}><X size={18} /></button>
+          <button class="close-btn" on:click={onClose}><X size={16} /></button>
         </div>
       </div>
 
@@ -420,10 +425,24 @@
     transition: all var(--transition-fast);
   }
 
-  .close-btn:hover {
-    background: var(--glass-bg-hover);
-    color: var(--text-primary);
+  .window-controls {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-right: 8px;
   }
+
+  .win-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+  }
+
+  .close-dot { background: #ff5f56; border: 1px solid #e0443e; }
+  .min-dot { background: #ffbd2e; border: 1px solid #dea123; }
+  .max-dot { background: #27c93f; border: 1px solid #1aab29; }
 
   .modal-body {
     padding: 20px 22px;
