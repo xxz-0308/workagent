@@ -1,0 +1,38 @@
+{
+  "name": "workagent",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "tsx server/index.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run --fileParallelism=false",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@testing-library/svelte": "^5.4.2",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.13.3",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.62.0",
+    "svelte": "^5.56.4",
+    "svelte-check": "^4.7.1",
+    "tsx": "^4.23.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.27.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "lucide-svelte": "^1.0.1",
+    "marked": "^18.0.7"
+  }
+}
