@@ -11,17 +11,17 @@
   --glass-border-hover: rgba(255, 255, 255, 0.16);
   --glass-blur: blur(20px) saturate(180%);
 
-  --text-primary: #f0f4f8;
+  --text-primary: #e2e8f0;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
 
-  --accent-blue: #0a84ff;
-  --accent-blue-hover: #0066cc;
-  --accent-purple: #bf5af2;
-  --accent-indigo: #5e5ce6;
-  --status-high: #ff453a;
-  --status-medium: #ff9f0a;
-  --status-low: #30d158;
+  --accent-blue: #7c6ef8;
+  --accent-blue-hover: #6d5fd4;
+  --accent-purple: #9b7ef8;
+  --accent-indigo: #6d55e8;
+  --status-high: #f87171;
+  --status-medium: #fb923c;
+  --status-low: #4ade80;
 
   --radius-sm: 6px;
   --radius-md: 10px;
