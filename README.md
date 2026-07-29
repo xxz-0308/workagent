@@ -14,11 +14,11 @@
 
 | 层次 | 技术 |
 |:---|:---|
-| 前端 | SvelteKit + Vite |
-| 后端 | Express + TypeScript (tsx) |
-| 数据库 | SQLite (Node.js 内置，无需安装) |
-| AI 对话 | OpenAI Compatible API (默认 DeepSeek) |
-| 样式 | Vanilla CSS (Apple Glass + Linear 融合设计) |
+| 前端 | Svelte 5 + Vite |
+| 后端 | Express + TypeScript，通过 **tsx** 运行（Node.js 原生执行 TS）|
+| 数据库 | SQLite（Node.js >= 20 内置，无需额外安装）|
+| AI 对话 | OpenAI Compatible API（默认 DeepSeek）|
+| 样式 | Vanilla CSS（Apple Glass + Linear Precision 融合设计）|
 
 ## 🚀 快速启动
 
@@ -45,23 +45,30 @@ npm install
 
 > API Key 保存在本地 SQLite 数据库中，不会上传到代码仓库。
 
-### 4. 启动项目（需要两个终端同时运行）
+### 4. 启动项目
 
-**终端 1 — 启动后端 API 服务：**
+#### 方式 A — 一键启动（推荐，Windows）
 
-```bash
-npx tsx watch server/index.ts
+```powershell
+# 启动（后台运行，自动打开浏览器）
+.\start.ps1
+
+# 停止
+.\stop.ps1
 ```
 
-后端运行在 `http://localhost:3001`
+> 如果提示「脚本执行被禁止」，先以管理员身份运行一次：
+> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
-**终端 2 — 启动前端开发服务器：**
+#### 方式 B — 手动启动（两个终端）
 
 ```bash
+# 终端 1 — 后端
+npx tsx watch server/index.ts
+
+# 终端 2 — 前端
 npm run dev
 ```
-
-前端运行在 `http://localhost:5173`
 
 打开浏览器访问 **http://localhost:5173** 即可使用。
 
