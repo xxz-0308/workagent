@@ -82,7 +82,10 @@
               </td>
               
               <td class="title-col" on:click={() => onSelectIssue(issue)}>
-                <div class="title-text">{issue.title}</div>
+                <div class="title-heading-row">
+                  <span class="inline-prod-badge">{issue.product_summary || 'ALL'}</span>
+                  <span class="title-text">{issue.title}</span>
+                </div>
                 {#if issue.description}
                   <div class="desc-snippet">{issue.description}</div>
                 {/if}
@@ -256,13 +259,27 @@
     font-weight: 600;
   }
 
-  .title-col {
-    cursor: pointer;
+  .title-heading-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .inline-prod-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
   }
 
   .title-text {
     font-weight: 600;
-    color: var(--text-primary);
+    color: #ffffff;
     line-height: 1.4;
   }
 

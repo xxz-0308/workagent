@@ -283,27 +283,34 @@
 </script>
 
 <div class="dashboard-container">
-  <!-- Top Stats Grid -->
-  <div class="stats-grid">
-    <StatsCard title="已知结构化问题总数" value={totalCount} subtitle="收录的已知技术问题" variant="blue" icon={AlertCircle} />
-    <StatsCard title="正在分析排查" value={analyzingCount} subtitle="定位中未确认根因" variant="amber" icon={Clock} />
-    <StatsCard title="已定位根因问题" value={locatedCount} subtitle="包含代码 Bug 或疑点" variant="green" icon={CheckCircle2} />
-    <StatsCard title="高严重度问题" value={highSeverityCount} subtitle="需重点关注与优先修复" variant="red" icon={ShieldAlert} />
-  </div>
-
   <!-- Header with New Issue & New Product Buttons -->
   <div class="dashboard-header">
-    <h2>结构化问题全景看板</h2>
+    <div class="header-title-group">
+      <div class="crumb-row">
+        <span class="crumb-app">WorkAgent</span>
+        <span class="crumb-slash">/</span>
+        <span class="crumb-page">Known Issues Dashboard</span>
+      </div>
+      <h2 class="main-title">结构化已知问题全景看板</h2>
+    </div>
     <div class="header-btns">
-      <button class="apple-button-secondary apple-button" on:click={() => showCreateProductModal = true}>
-        <Plus size={16} />
-        <span>新建产品</span>
+      <button class="apple-button-secondary apple-button create-prod-btn" on:click={() => showCreateProductModal = true}>
+        <Plus size={15} />
+        <span>新建产品拓扑</span>
       </button>
-      <button class="apple-button" on:click={openCreateModal}>
-        <Plus size={16} />
-        <span>新建已知问题</span>
+      <button class="apple-button create-issue-btn" on:click={openCreateModal}>
+        <Plus size={15} />
+        <span>+ 新建已知问题</span>
       </button>
     </div>
+  </div>
+
+  <!-- Top Stats Grid -->
+  <div class="stats-grid">
+    <StatsCard title="已知结构化问题总数" value={totalCount} trend="+12% 本周" subtitle="全维度已收录问题" variant="blue" icon={AlertCircle} />
+    <StatsCard title="正在分析排查" value={analyzingCount} trend="实时跟踪" subtitle="定位中未确认根因" variant="amber" icon={Clock} />
+    <StatsCard title="已定位根因问题" value={locatedCount} trend="已确认代码Bug" subtitle="包含代码泄漏/死锁" variant="green" icon={CheckCircle2} />
+    <StatsCard title="高严重度风险问题" value={highSeverityCount} trend="需优先修复" subtitle="重点影响现网及压测" variant="red" icon={ShieldAlert} />
   </div>
 
   <!-- Filter Bar -->
@@ -638,30 +645,70 @@
 
 <style>
   .dashboard-container {
-    padding: 20px;
-    max-width: 1600px;
+    padding: 0 20px 24px 20px;
+    max-width: 1280px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
   }
 
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
+    gap: 14px;
   }
 
   .dashboard-header {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
+    padding: 4px 0;
   }
 
-  .dashboard-header h2 {
-    font-size: 20px;
+  .header-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .crumb-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .crumb-app {
+    color: var(--accent-blue);
+    font-weight: 600;
+  }
+
+  .crumb-slash {
+    color: var(--text-muted);
+  }
+
+  .crumb-page {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .main-title {
+    font-size: 22px;
     font-weight: 700;
+    color: #ffffff;
     letter-spacing: -0.4px;
+  }
+
+  .header-btns {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .create-issue-btn {
+    background: var(--accent-blue);
+    box-shadow: 0 4px 14px rgba(10, 132, 255, 0.35);
   }
 
   .modal-backdrop, .drawer-backdrop {
