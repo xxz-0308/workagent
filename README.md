@@ -1,47 +1,124 @@
-# Svelte + TS + Vite
+# WorkAgent — 版本补丁智能助手
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+> 专为软件研发与运维人员打造的 AI 驱动知识库与补丁管理平台
 
-## Recommended IDE Setup
+## ✨ 核心功能
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+- **🤖 AI 智能定位助手** — 基于 DeepSeek 大模型，描述现象即可快速分析代码 Bug 方向，自动记录定位结论
+- **📋 结构化已知问题库** — 全维度管理产品/服务/版本维度的技术问题，支持按严重度、状态、服务筛选
+- **🔖 版本补丁合入清单** — 选定产品与目标版本后，一键查看哪些问题未修复、跨版本漏合，精准生成出补丁清单
+- **🗂️ 产品拓扑管理** — 维护多产品、多版本、多服务的层级拓扑结构，AI 可自动固化规则
+- **📊 实时看板** — 问题总数、分析中、已定位、高风险等核心指标一览
 
-## Need an official Svelte framework?
+## 🛠️ 技术栈
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+| 层次 | 技术 |
+|:---|:---|
+| 前端 | SvelteKit + Vite |
+| 后端 | Express + TypeScript (tsx) |
+| 数据库 | SQLite (Node.js 内置，无需安装) |
+| AI 对话 | OpenAI Compatible API (默认 DeepSeek) |
+| 样式 | Vanilla CSS (Apple Glass + Linear 融合设计) |
 
-## Technical considerations
+## 🚀 快速启动
 
-**Why use this over SvelteKit?**
+### 1. 克隆项目
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
-
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
-
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
-
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
-
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+```bash
+git clone <你的仓库地址>
+cd workagent
 ```
+
+### 2. 安装依赖
+
+```bash
+npm install
+```
+
+### 3. 配置 API Key
+
+启动后进入 **系统配置** 页面，填写：
+
+- **API Key** — DeepSeek 或任意 OpenAI 兼容服务的 Key
+- **Base URL** — 默认 `https://api.deepseek.com/v1`
+- **Model** — 默认 `deepseek-chat`
+
+> API Key 保存在本地 SQLite 数据库中，不会上传到代码仓库。
+
+### 4. 启动项目（需要两个终端同时运行）
+
+**终端 1 — 启动后端 API 服务：**
+
+```bash
+npx tsx watch server/index.ts
+```
+
+后端运行在 `http://localhost:3001`
+
+**终端 2 — 启动前端开发服务器：**
+
+```bash
+npm run dev
+```
+
+前端运行在 `http://localhost:5173`
+
+打开浏览器访问 **http://localhost:5173** 即可使用。
+
+---
+
+## 📁 项目结构
+
+```
+workagent/
+├── server/                 # 后端 Express 服务
+│   ├── agent/              # AI Agent 逻辑 (LLM Client + Tools)
+│   ├── db/                 # SQLite 数据库初始化与查询
+│   ├── routes/             # API 路由 (chat / issues / products / settings)
+│   └── index.ts            # 后端入口
+├── src/                    # 前端 Svelte 应用
+│   ├── lib/
+│   │   ├── components/
+│   │   │   ├── chat/       # AI 对话界面
+│   │   │   ├── dashboard/  # 已知问题看板
+│   │   │   ├── settings/   # 系统配置
+│   │   │   └── shared/     # 公共组件 (Navbar, AppleSelect...)
+│   │   └── api/            # 前端 API 客户端
+│   └── app.css             # 全局设计 Token
+├── data/                   # SQLite 数据库 (运行时自动创建，已 gitignore)
+└── scripts/                # 辅助脚本
+```
+
+## 💡 使用指南
+
+### AI 助手
+
+- 直接描述问题现象，AI 给出排查思路
+- 说"**帮我记录这个问题**"，AI 自动创建结构化问题记录
+- 说"**CSP 23.1 出补丁需要带哪些问题**"，AI 调用工具生成补丁清单
+
+### 已知问题管理
+
+- 支持按产品、版本、服务、状态多维筛选与分页
+- 点击"详情"查看版本修复矩阵和完整根因分析
+- AI 对话可自动填充根因、影响范围等字段
+
+### 补丁清单
+
+- 在筛选栏选中产品 + 版本，点击"补丁提醒清单"
+- 仅展示该版本**未修复**的问题，精准防止漏合
+
+## 📝 数据说明
+
+- 所有数据存储在 `data/workagent.db`（SQLite 本地文件）
+- 该文件已加入 `.gitignore`，**不会**提交到代码仓库
+- 新机器部署时数据库自动初始化为空，如需迁移数据请手动拷贝 `data/workagent.db` 文件到新机器同路径下
+
+## 环境要求
+
+- **Node.js** >= 20.0（需支持原生 SQLite 模块）
+- **npm** >= 9.0
+
+---
+
+> Built with ❤️ by WorkAgent + Google Antigravity AI
