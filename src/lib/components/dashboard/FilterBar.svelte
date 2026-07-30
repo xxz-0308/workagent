@@ -12,10 +12,12 @@
   export let selectedServiceId: number | null = null;
   export let selectedStatus: string = '';
   export let selectedTag: string = '';
+  export let selectedFixStatus: string = '';
   export let availableTags: string[] = [];
   export let searchQuery: string = '';
 
   export let onFilterChange: () => void;
+  export let onFixStatusChange: ((val: string) => void) | undefined = undefined;
   export let onOpenChecklist: () => void;
 
   let searchInputEl: HTMLInputElement;
@@ -62,6 +64,14 @@
     { value: 'analyzing', label: '分析中' },
     { value: 'located', label: '已定位' },
     { value: 'closed', label: '已关闭' }
+  ];
+
+  const fixStatusOptions = [
+    { value: '', label: '全部修复状态' },
+    { value: 'unfixed', label: '未修复' },
+    { value: 'fixed', label: '已修复' },
+    { value: 'patched', label: '已合入' },
+    { value: 'na', label: '不涉及' }
   ];
 
   $: tagOptions = [
@@ -147,6 +157,20 @@
         />
       </div>
     </div>
+
+    <!-- Fix Status Select (only when version selected) -->
+    {#if selectedVersionId}
+      <div class="select-box">
+        <span class="label">修复:</span>
+        <div class="custom-select-wrap">
+          <AppleSelect
+            options={fixStatusOptions}
+            value={selectedFixStatus}
+            onChange={(val) => { selectedFixStatus = val; if (onFixStatusChange) onFixStatusChange(val); }}
+          />
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- Patch Checklist Button -->

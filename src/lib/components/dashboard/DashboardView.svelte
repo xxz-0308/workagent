@@ -23,6 +23,7 @@
   let selectedVersionId: number | null = null;
   let selectedServiceId: number | null = null;
   let selectedStatus: string = '';
+  let selectedFixStatus: string = '';
   let selectedTag: string = '';
   let searchQuery: string = '';
 
@@ -57,7 +58,20 @@
     } catch {}
   }
 
-  async function loadIssues() {
+  function handleFilterChange() {
+    if (!selectedVersionId) selectedFixStatus = '';
+    currentPage = 1;
+    loadIssues();
+  }
+
+  function handleFixStatusChange(val: string) {
+    selectedFixStatus = val;
+    currentPage = 1;
+    loadIssues(val);
+  }
+
+  async function loadIssues(overrideFixStatus?: string) {
+    const fixFilter = overrideFixStatus !== undefined ? overrideFixStatus : selectedFixStatus;
     isLoading = true;
     try {
       const params = new URLSearchParams();
@@ -65,6 +79,7 @@
       if (selectedVersionId) params.append('versionId', String(selectedVersionId));
       if (selectedServiceId) params.append('serviceId', String(selectedServiceId));
       if (selectedStatus) params.append('status', selectedStatus);
+      if (fixFilter) params.append('fixStatus', fixFilter);
       if (selectedTag) params.append('tag', selectedTag);
       if (searchQuery) params.append('search', searchQuery);
       params.append('page', String(currentPage));
@@ -75,7 +90,6 @@
         issues = result.issues;
         totalIssues = result.total;
       } else if (Array.isArray(result)) {
-        // Backwards compat: if server returns plain array
         issues = result;
         totalIssues = result.length;
       } else {
@@ -90,17 +104,13 @@
     }
   }
 
-  function handleFilterChange() {
-    currentPage = 1;
-    loadIssues();
-  }
-
   function exportIssues(format: 'csv' | 'json') {
     const params = new URLSearchParams();
     if (selectedProductId) params.append('productId', String(selectedProductId));
     if (selectedVersionId) params.append('versionId', String(selectedVersionId));
     if (selectedServiceId) params.append('serviceId', String(selectedServiceId));
     if (selectedStatus) params.append('status', selectedStatus);
+    if (selectedFixStatus) params.append('fixStatus', selectedFixStatus);
     if (selectedTag) params.append('tag', selectedTag);
     if (searchQuery) params.append('search', searchQuery);
     params.append('format', format);
@@ -450,10 +460,12 @@
     bind:selectedVersionId
     bind:selectedServiceId
     bind:selectedStatus
+    bind:selectedFixStatus
     bind:selectedTag
     {availableTags}
     bind:searchQuery
     onFilterChange={handleFilterChange}
+    onFixStatusChange={handleFixStatusChange}
     onOpenChecklist={openPatchChecklist}
   />
 
