@@ -15,10 +15,10 @@
 
   function getVersionFixStatus(issue: any, verName: string, prodCode: string): string {
     if (!verName || !issue.affected_versions) return '';
-    let match = issue.affected_versions.find((av: any) => av.version_name === verName && av.product_code === prodCode);
-    if (!match && prodCode) {
-      match = issue.affected_versions.find((av: any) => av.version_name === verName);
-    }
+    // Match by both version and product; fall back to version-only if no product or no exact match
+    let match = issue.affected_versions.find((av: any) =>
+      av.version_name === verName && (!prodCode || av.product_code === prodCode)
+    );
     return match ? match.fix_status : '';
   }
 
