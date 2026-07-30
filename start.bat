@@ -1,6 +1,5 @@
 @echo off
-title WorkAgent Starting...
-
+title WorkAgent
 cd /d "%~dp0"
 
 echo.
@@ -19,7 +18,7 @@ if not exist "node_modules\" (
     echo  First run - installing dependencies, please wait...
     call npm install
     if errorlevel 1 (
-        echo  ERROR: npm install failed. Check your network connection.
+        echo  ERROR: npm install failed.
         pause
         exit /b 1
     )
@@ -27,25 +26,25 @@ if not exist "node_modules\" (
 
 if not exist "data\" mkdir data
 
-echo  Starting backend on http://localhost:3001 ...
-start "WorkAgent-Backend" /min cmd /c "node node_modules\.bin\tsx server/index.ts"
+echo  Starting backend  (http://localhost:3001) ...
+start "WorkAgent-Backend" /d "%~dp0" cmd /k "npx tsx server/index.ts"
 
 timeout /t 2 /nobreak >nul
 
-echo  Starting frontend on http://localhost:5173 ...
-start "WorkAgent-Frontend" /min cmd /c "node node_modules\.bin\vite --port 5173"
+echo  Starting frontend (http://localhost:5173) ...
+start "WorkAgent-Frontend" /d "%~dp0" cmd /k "npm run dev"
 
-timeout /t 3 /nobreak >nul
+timeout /t 4 /nobreak >nul
 
 echo.
 echo  ================================
 echo   WorkAgent is running!
-echo   URL: http://localhost:5173
+echo   http://localhost:5173
 echo   To stop: double-click stop.bat
 echo  ================================
 echo.
 
 start "" "http://localhost:5173"
 
-echo  Press any key to close this window (services keep running)...
-pause >nul
+echo  You can close this window. Services keep running in those 2 windows.
+timeout /t 3 /nobreak >nul
