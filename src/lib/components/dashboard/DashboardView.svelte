@@ -55,8 +55,6 @@
   }
 
   async function loadIssues() {
-    const scrollEl = document.querySelector('.tab-page.active');
-    const scrollTop = scrollEl ? scrollEl.scrollTop : 0;
     isLoading = true;
     try {
       const params = new URLSearchParams();
@@ -86,10 +84,6 @@
       totalIssues = 0;
     } finally {
       isLoading = false;
-      requestAnimationFrame(() => {
-        const el = document.querySelector('.tab-page.active');
-        if (el) el.scrollTop = scrollTop;
-      });
     }
   }
 

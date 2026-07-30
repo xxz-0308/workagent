@@ -51,7 +51,7 @@
 
 <div class="table-card glass-panel">
   <div class="table-container">
-    {#if isLoading}
+    {#if isLoading && issues.length === 0}
       <div class="skeleton-table">
         {#each Array(Math.min(pageSize, 10)) as _}
           <div class="skeleton-row">
@@ -66,7 +66,7 @@
           </div>
         {/each}
       </div>
-    {:else if issues.length === 0}
+    {:else if issues.length === 0 && !isLoading}
       <div class="empty-state">
         <AlertTriangle size={32} class="empty-icon" />
         <p>未找到符合要求的结构化已知问题</p>

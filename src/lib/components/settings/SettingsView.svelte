@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun, Trash2, Pencil, X, Save } from 'lucide-svelte';
+  import AppleConfirmModal from '../shared/AppleConfirmModal.svelte';
   import { fetchJson } from '../../api/client';
   import { toastError, toastSuccess } from '../../stores/toast';
 
@@ -17,6 +18,8 @@
   let editingRuleId: number | null = null;
   let editRuleCategory: string = '';
   let editRuleContent: string = '';
+  let ruleToDelete: number | null = null;
+  let ruleToDeleteContent: string = '';
 
   onMount(() => {
     loadSettings();
@@ -67,10 +70,16 @@
     }
   }
 
-  async function deleteRuleById(id: number) {
-    if (!confirm('确定要删除这条规则吗？')) return;
+  function promptDeleteRule(id: number, content: string) {
+    ruleToDelete = id;
+    ruleToDeleteContent = content;
+  }
+
+  async function confirmDeleteRule() {
+    if (!ruleToDelete) return;
     try {
-      await fetchJson(`/topology/rules/${id}`, { method: 'DELETE' });
+      await fetchJson(`/topology/rules/${ruleToDelete}`, { method: 'DELETE' });
+      ruleToDelete = null;
       await loadRules();
       toastSuccess('规则已删除');
     } catch (err: any) {
@@ -235,7 +244,7 @@
                   <span class="rule-date">{new Date(r.created_at).toLocaleString()}</span>
                   <div class="rule-actions">
                     <button class="icon-btn" on:click={() => startEditRule(r)} title="编辑"><Pencil size={13} /></button>
-                    <button class="icon-btn del" on:click={() => deleteRuleById(r.id)} title="删除"><Trash2 size={13} /></button>
+                    <button class="icon-btn del" on:click={() => promptDeleteRule(r.id, r.content)} title="删除"><Trash2 size={13} /></button>
                   </div>
                 </div>
               {/if}
@@ -246,6 +255,15 @@
     </div>
   </div>
 </div>
+
+<AppleConfirmModal
+  open={ruleToDelete !== null}
+  title="删除规则"
+  message="确定要删除这条规则吗？"
+  confirmText="确认删除"
+  onConfirm={confirmDeleteRule}
+  onCancel={() => ruleToDelete = null}
+/>
 
 <style>
   .settings-container {
