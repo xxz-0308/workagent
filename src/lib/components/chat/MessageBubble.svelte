@@ -45,7 +45,11 @@
     <div class="markdown-body">
       {@html htmlContent}
       {#if isStreaming}
-        <span class="typing-indicator"></span>
+        <span class="typing-dots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </span>
       {/if}
     </div>
   </div>
@@ -166,6 +170,12 @@
     border: 1px solid rgba(0, 122, 255, 0.25);
     color: var(--accent-blue);
     font-size: 12px;
+    animation: chipIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes chipIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
   }
 
   .tool-chip code {
@@ -176,18 +186,29 @@
   .success-icon { color: var(--status-low); }
   .err-icon { color: var(--status-high); }
 
-  .typing-indicator {
-    display: inline-block;
-    width: 8px;
-    height: 15px;
-    background: var(--accent-blue);
-    margin-left: 4px;
-    animation: blink 0.8s infinite;
+  /* Bouncing dots for streaming indicator */
+  .typing-dots {
+    display: inline-flex;
+    gap: 4px;
+    align-items: flex-end;
+    margin-left: 6px;
     vertical-align: middle;
+    height: 18px;
   }
 
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.2; }
+  .typing-dots .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-mid);
+    animation: bounce 1.2s infinite cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .typing-dots .dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots .dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
   }
 </style>

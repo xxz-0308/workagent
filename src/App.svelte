@@ -48,13 +48,13 @@
   />
 
   <main class="view-content">
-    <div style="display: {activeTab === 'chat' ? 'block' : 'none'}; height: 100%;">
+    <div class="tab-page" class:active={activeTab === 'chat'}>
       <ChatView />
     </div>
-    <div style="display: {activeTab === 'dashboard' ? 'block' : 'none'};">
+    <div class="tab-page" class:active={activeTab === 'dashboard'}>
       <DashboardView />
     </div>
-    <div style="display: {activeTab === 'settings' ? 'block' : 'none'};">
+    <div class="tab-page" class:active={activeTab === 'settings'}>
       <SettingsView {theme} onToggleTheme={handleToggleTheme} />
     </div>
   </main>
@@ -73,6 +73,34 @@
 
   .view-content {
     flex: 1;
-    overflow-y: auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tab-page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    visibility: hidden;
+    transition:
+      opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0s 0.3s;
+  }
+
+  .tab-page.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    visibility: visible;
+    transition:
+      opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0s 0s;
   }
 </style>

@@ -1,13 +1,27 @@
 <script lang="ts">
+  import { tweened } from 'svelte/motion';
+
   export let title: string = '';
   export let value: number | string = 0;
   export let subtitle: string = '';
   export let icon: any = null;
   export let variant: 'blue' | 'amber' | 'red' | 'green' = 'blue';
   export let trend: string = '';
+
+  const numValue = typeof value === 'number' ? value : parseInt(String(value)) || 0;
+  const animated = tweened(0, { duration: 600, easing: (t: number) => 1 - Math.pow(1 - t, 3) });
+
+  $: if (typeof value === 'number') {
+    animated.set(value);
+  } else {
+    animated.set(parseInt(String(value)) || 0);
+  }
+
+  $: displayValue = Math.round($animated);
 </script>
 
 <div class="stats-card glass-panel {variant}">
+  <div class="accent-stripe"></div>
   <div class="card-top">
     <div class="icon-box">
       {#if icon}
@@ -21,7 +35,7 @@
 
   <div class="card-main">
     <div class="title">{title}</div>
-    <div class="value mono-font">{value}</div>
+    <div class="value mono-font">{displayValue}</div>
   </div>
 
   <div class="card-footer">
@@ -41,19 +55,38 @@
     flex-direction: column;
     justify-content: space-between;
     gap: 12px;
-    background: var(--bg-secondary);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     position: relative;
     overflow: hidden;
-    transition: all var(--transition-fast);
+    transition: all var(--transition-normal);
   }
 
+  .accent-stripe {
+    position: absolute;
+    left: 0;
+    top: 12px;
+    bottom: 12px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    transition: all var(--transition-normal);
+  }
+
+  .blue .accent-stripe { background: var(--accent-mid); box-shadow: 0 0 8px var(--accent-glow); }
+  .amber .accent-stripe { background: var(--status-medium); box-shadow: 0 0 8px var(--status-medium-glow); }
+  .red .accent-stripe { background: var(--status-high); box-shadow: 0 0 8px var(--status-high-glow); }
+  .green .accent-stripe { background: var(--status-low); box-shadow: 0 0 8px var(--status-low-glow); }
+
   .stats-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: var(--glass-border-hover);
     box-shadow: var(--shadow-md);
   }
+
+  .blue:hover { box-shadow: 0 8px 24px var(--accent-glow), var(--shadow-md); }
+  .amber:hover { box-shadow: 0 8px 24px var(--status-medium-glow), var(--shadow-md); }
+  .red:hover { box-shadow: 0 8px 24px var(--status-high-glow), var(--shadow-md); }
+  .green:hover { box-shadow: 0 8px 24px var(--status-low-glow), var(--shadow-md); }
 
   .card-top {
     display: flex;

@@ -51,7 +51,22 @@
 
 <div class="table-card glass-panel">
   <div class="table-container">
-    {#if issues.length === 0}
+    {#if isLoading}
+      <div class="skeleton-table">
+        {#each Array(Math.min(pageSize, 10)) as _}
+          <div class="skeleton-row">
+            <div class="skeleton-cell" style="width:80px"><span class="shimmer"></span></div>
+            <div class="skeleton-cell flex-1"><span class="shimmer"></span></div>
+            <div class="skeleton-cell" style="width:100px"><span class="shimmer"></span></div>
+            <div class="skeleton-cell" style="width:90px"><span class="shimmer"></span></div>
+            <div class="skeleton-cell" style="width:90px"><span class="shimmer"></span></div>
+            <div class="skeleton-cell" style="width:70px"><span class="shimmer"></span></div>
+            <div class="skeleton-cell" style="width:80px"><span class="shimmer"></span></div>
+            <div class="skeleton-cell" style="width:80px"><span class="shimmer"></span></div>
+          </div>
+        {/each}
+      </div>
+    {:else if issues.length === 0}
       <div class="empty-state">
         <AlertTriangle size={32} class="empty-icon" />
         <p>未找到符合要求的结构化已知问题</p>
@@ -226,27 +241,50 @@
     color: var(--text-muted);
   }
 
-  .loading-state {
-    padding: 60px 20px;
-    text-align: center;
+  /* Skeleton loading */
+  .skeleton-table {
+    padding: 0;
     display: flex;
     flex-direction: column;
+  }
+
+  .skeleton-row {
+    display: flex;
+    gap: 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--glass-border);
     align-items: center;
-    gap: 10px;
-    color: var(--text-muted);
   }
 
-  .spinner {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--glass-border);
-    border-top-color: var(--accent-blue);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+  .skeleton-cell {
+    height: 16px;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
   }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+  .skeleton-cell.flex-1 {
+    flex: 1;
+  }
+
+  .shimmer {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg,
+      var(--glass-bg) 25%,
+      var(--glass-bg-hover) 50%,
+      var(--glass-bg) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 
   .empty-icon {
