@@ -7,9 +7,31 @@
   export let currentPage: number = 1;
   export let pageSize: number = 10;
   export let isLoading: boolean = false;
+  export let selectedVersionName: string = '';
   export let onSelectIssue: (issue: any) => void;
   export let onDeleteIssue: (id: number) => void;
   export let onPageChange: ((page: number, pageSize: number) => void) | undefined = undefined;
+
+  function getVersionFixStatus(issue: any, verName: string): string {
+    if (!verName || !issue.affected_versions) return '';
+    const match = issue.affected_versions.find((av: any) => av.version_name === verName);
+    return match ? match.fix_status : '';
+  }
+
+  function versionFixLabel(s: string): string {
+    if (s === 'patched') return '已合入';
+    if (s === 'fixed') return '已修复';
+    if (s === 'unfixed') return '未修复';
+    if (s === 'na') return '不涉及';
+    return s;
+  }
+
+  function versionFixColor(s: string): string {
+    if (s === 'patched') return 'var(--status-low)';
+    if (s === 'fixed') return 'var(--status-medium)';
+    if (s === 'unfixed') return 'var(--status-high)';
+    return 'var(--text-muted)';
+  }
 
   $: totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   $: startIndex = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -83,6 +105,9 @@
             <th style="width: 120px;">所属服务</th>
             <th style="width: 100px;">严重度</th>
             <th style="width: 110px;">定位状态</th>
+            {#if selectedVersionName}
+              <th style="width: 100px;">{selectedVersionName} 修复</th>
+            {/if}
             <th style="width: 110px; text-align: right;">操作</th>
           </tr>
         </thead>
@@ -136,6 +161,19 @@
                   </span>
                 </div>
               </td>
+
+              {#if selectedVersionName}
+                <td>
+                  {@const fs = getVersionFixStatus(issue, selectedVersionName)}
+                  {#if fs}
+                    <span class="version-fix-badge" style="background: {versionFixColor(fs)}20; color: {versionFixColor(fs)}; border: 1px solid {versionFixColor(fs)}40;">
+                      {versionFixLabel(fs)}
+                    </span>
+                  {:else}
+                    <span style="color: var(--text-muted); font-size: 12px;">-</span>
+                  {/if}
+                </td>
+              {/if}
 
               <td class="actions-col">
                 <button class="action-btn detail-btn" on:click={() => onSelectIssue(issue)} title="查看详情与修改">
@@ -441,6 +479,14 @@
     background: rgba(48, 209, 88, 0.15);
     color: var(--status-low);
     border-color: rgba(48, 209, 88, 0.25);
+  }
+
+  .version-fix-badge {
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .status-cell {

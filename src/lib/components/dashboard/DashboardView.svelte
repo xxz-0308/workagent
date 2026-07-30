@@ -39,6 +39,9 @@
 
   let showChecklistDrawer: boolean = false;
   let checklistData: any = null;
+  let patchInputIssueId: number | null = null;
+  let patchInputVersion: string = '';
+  let patchInputDefault: string = '';
 
   onMount(() => {
     loadMetadata();
@@ -106,6 +109,22 @@
     a.href = `/api/issues/export?${params.toString()}`;
     a.download = '';
     a.click();
+  }
+
+  async function openIssueFromChecklist(issueId: number) {
+    try {
+      const issue = await fetchJson(`/issues/${issueId}`);
+      selectedIssueForDetails = issue;
+    } catch (err: any) {
+      toastError(`无法加载问题详情: ${err.message}`);
+    }
+  }
+
+  function submitPatchInput() {
+    if (patchInputIssueId !== null && patchInputDefault.trim()) {
+      updateVersionFixStatus(patchInputIssueId, patchInputVersion, 'patched', patchInputDefault.trim());
+    }
+    patchInputIssueId = null;
   }
 
   function handlePageChange(page: number, size: number) {
@@ -379,6 +398,7 @@
     } catch {}
   }
 
+  $: selectedVersionName = selectedVersionId ? (versions.find(v => v.id === selectedVersionId)?.version_name || '') : '';
   $: totalCount = stats?.total || 0;
   $: analyzingCount = stats?.analyzing || 0;
   $: locatedCount = stats?.located || 0;
@@ -443,6 +463,7 @@
     {currentPage}
     {pageSize}
     {isLoading}
+    {selectedVersionName}
     onSelectIssue={(issue) => selectedIssueForDetails = issue}
     onDeleteIssue={promptDeleteIssue}
     onPageChange={handlePageChange}
@@ -699,7 +720,7 @@
           <div class="empty-drawer">🎉 该版本下暂无未合入的遗留问题！</div>
         {:else}
           {#each checklistData.checklist as item}
-            <div class="checklist-item-card glass-panel">
+            <div class="checklist-item-card glass-panel" on:click={() => openIssueFromChecklist(item.issue_id)}>
               <div class="item-head">
                 <span class="item-title">#{item.issue_id} {item.title}</span>
                 <span class="svc-tag">{item.service_name}</span>
@@ -709,7 +730,6 @@
                 <div class="item-cause">根因: {item.root_cause}</div>
               {/if}
 
-              <!-- Highlight cross-version fix warning! -->
               {#if item.fixed_in_other_versions && item.fixed_in_other_versions.length > 0}
                 <div class="cross-version-alert">
                   <AlertCircle size={14} />
@@ -717,21 +737,31 @@
                 </div>
               {/if}
 
-              <div class="item-actions">
-                <span class="cur-status">当前状态: <strong>{item.current_version_status}</strong></span>
-                <button
-                  class="apple-button"
-                  style="font-size: 12px; padding: 4px 10px;"
-                  on:click={() => {
-                    const patchNo = prompt('请输入合入的补丁版本号 (如 23.1_P01):', `${checklistData.version}_P01`);
-                    if (patchNo) {
-                      updateVersionFixStatus(item.issue_id, checklistData.version, 'patched', patchNo);
-                    }
-                  }}
-                >
-                  <Check size={14} />
-                  <span>标记已合入补丁</span>
-                </button>
+              <div class="item-actions" on:click|stopPropagation>
+                <span class="cur-status">当前状态: <strong>{item.current_version_status === 'unfixed' ? '未修复' : item.current_version_status === 'fixed' ? '已修复' : item.current_version_status === 'patched' ? '已合入' : item.current_version_status}</strong></span>
+                {#if patchInputIssueId === item.issue_id}
+                  <div class="patch-input-row">
+                    <input
+                      type="text"
+                      class="apple-input"
+                      style="width: 140px; padding: 4px 8px; font-size: 12px;"
+                      bind:value={patchInputDefault}
+                      placeholder="补丁号如 23.1_P01"
+                      on:keydown={(e) => { if (e.key === 'Enter') submitPatchInput(); if (e.key === 'Escape') patchInputIssueId = null; }}
+                    />
+                    <button class="apple-button" style="font-size: 11px; padding: 4px 8px;" on:click={submitPatchInput}><Check size={12} /> 确认</button>
+                    <button class="apple-button-secondary apple-button" style="font-size: 11px; padding: 4px 8px;" on:click={() => patchInputIssueId = null}><X size={12} /></button>
+                  </div>
+                {:else}
+                  <button
+                    class="apple-button"
+                    style="font-size: 12px; padding: 4px 10px;"
+                    on:click={() => { patchInputIssueId = item.issue_id; patchInputVersion = checklistData.version; patchInputDefault = `${checklistData.version}_P01`; }}
+                  >
+                    <Check size={14} />
+                    <span>标记已合入补丁</span>
+                  </button>
+                {/if}
               </div>
             </div>
           {/each}
