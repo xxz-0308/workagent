@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun } from 'lucide-svelte';
+  import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun, Trash2, Pencil, X, Save } from 'lucide-svelte';
   import { fetchJson } from '../../api/client';
   import { toastError, toastSuccess } from '../../stores/toast';
 
@@ -14,6 +14,9 @@
   let isTesting: boolean = false;
 
   let rules: any[] = [];
+  let editingRuleId: number | null = null;
+  let editRuleCategory: string = '';
+  let editRuleContent: string = '';
 
   onMount(() => {
     loadSettings();
@@ -33,6 +36,46 @@
     try {
       rules = await fetchJson('/topology/rules');
     } catch {}
+  }
+
+  function startEditRule(rule: any) {
+    editingRuleId = rule.id;
+    editRuleCategory = rule.category;
+    editRuleContent = rule.content;
+  }
+
+  function cancelEditRule() {
+    editingRuleId = null;
+  }
+
+  async function saveEditRule(id: number) {
+    if (!editRuleCategory.trim() || !editRuleContent.trim()) {
+      toastError('分类和内容不能为空');
+      return;
+    }
+    try {
+      await fetchJson(`/topology/rules/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: editRuleCategory.trim(), content: editRuleContent.trim() })
+      });
+      editingRuleId = null;
+      await loadRules();
+      toastSuccess('规则已更新');
+    } catch (err: any) {
+      toastError(`更新失败: ${err.message}`);
+    }
+  }
+
+  async function deleteRuleById(id: number) {
+    if (!confirm('确定要删除这条规则吗？')) return;
+    try {
+      await fetchJson(`/topology/rules/${id}`, { method: 'DELETE' });
+      await loadRules();
+      toastSuccess('规则已删除');
+    } catch (err: any) {
+      toastError(`删除失败: ${err.message}`);
+    }
   }
 
   async function saveSettings() {
@@ -176,9 +219,26 @@
         {:else}
           {#each rules as r}
             <div class="rule-card">
-              <div class="rule-tag">{r.category}</div>
-              <div class="rule-content">{r.content}</div>
-              <div class="rule-date">{new Date(r.created_at).toLocaleString()}</div>
+              {#if editingRuleId === r.id}
+                <div class="rule-edit-form">
+                  <input class="apple-input rule-edit-cat" bind:value={editRuleCategory} placeholder="分类" />
+                  <textarea class="apple-input rule-edit-content" bind:value={editRuleContent} rows="2" placeholder="规则内容"></textarea>
+                  <div class="rule-edit-actions">
+                    <button class="apple-button" on:click={() => saveEditRule(r.id)}><Save size={13} /> 保存</button>
+                    <button class="apple-button-secondary apple-button" on:click={cancelEditRule}><X size={13} /> 取消</button>
+                  </div>
+                </div>
+              {:else}
+                <div class="rule-tag">{r.category}</div>
+                <div class="rule-content">{r.content}</div>
+                <div class="rule-meta">
+                  <span class="rule-date">{new Date(r.created_at).toLocaleString()}</span>
+                  <div class="rule-actions">
+                    <button class="icon-btn" on:click={() => startEditRule(r)} title="编辑"><Pencil size={13} /></button>
+                    <button class="icon-btn del" on:click={() => deleteRuleById(r.id)} title="删除"><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              {/if}
             </div>
           {/each}
         {/if}
@@ -292,6 +352,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    transition: border-color var(--transition-fast);
+  }
+
+  .rule-card:hover {
+    border-color: var(--glass-border-hover);
   }
 
   .rule-tag {
@@ -306,9 +371,74 @@
     color: var(--text-primary);
   }
 
+  .rule-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   .rule-date {
     font-size: 11px;
     color: var(--text-muted);
+  }
+
+  .rule-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .rule-card:hover .rule-actions {
+    opacity: 1;
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .icon-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--glass-border-hover);
+  }
+
+  .icon-btn.del:hover {
+    color: var(--status-high);
+    border-color: rgba(255, 69, 58, 0.3);
+  }
+
+  .rule-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .rule-edit-cat {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .rule-edit-content {
+    padding: 6px 8px;
+    font-size: 13px;
+    resize: vertical;
+  }
+
+  .rule-edit-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
   }
 
   .empty-rules {

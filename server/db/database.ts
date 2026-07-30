@@ -705,6 +705,15 @@ export function getRules(): Rule[] {
   return db.prepare('SELECT * FROM rules ORDER BY created_at DESC').all() as Rule[];
 }
 
+export function updateRule(id: number, category: string, content: string): Rule {
+  db.prepare('UPDATE rules SET category = ?, content = ? WHERE id = ?').run(category, content, id);
+  return db.prepare('SELECT * FROM rules WHERE id = ?').get(id) as Rule;
+}
+
+export function deleteRule(id: number): void {
+  db.prepare('DELETE FROM rules WHERE id = ?').run(id);
+}
+
 export function getConversations(): Conversation[] {
   return db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC').all() as Conversation[];
 }

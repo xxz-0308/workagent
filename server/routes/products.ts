@@ -6,7 +6,9 @@ import {
   getVersions,
   createVersion,
   getServices,
-  getRules
+  getRules,
+  updateRule,
+  deleteRule
 } from '../db/database.js';
 
 export const productsRouter = Router();
@@ -77,5 +79,29 @@ productsRouter.get('/rules', (req, res) => {
     res.json(getRules());
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Update rule
+productsRouter.patch('/rules/:id', (req, res) => {
+  try {
+    const { category, content } = req.body;
+    if (!category || !content) {
+      return res.status(400).json({ error: 'category and content are required' });
+    }
+    const rule = updateRule(Number(req.params.id), category, content);
+    res.json(rule);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete rule
+productsRouter.delete('/rules/:id', (req, res) => {
+  try {
+    deleteRule(Number(req.params.id));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 });
