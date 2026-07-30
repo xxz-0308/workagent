@@ -115,12 +115,41 @@ export function initDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS issue_products (
+      issue_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      PRIMARY KEY (issue_id, product_id),
+      FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    );
   `);
 
   try { db.exec('ALTER TABLE issues ADD COLUMN tags TEXT;'); } catch {}
 
+  // Backfill issue_products for existing issues if empty
+  try {
+    const count = (db.prepare('SELECT COUNT(*) as cnt FROM issue_products').get() as { cnt: number }).cnt;
+    if (count === 0) {
+      db.exec(`
+        INSERT OR IGNORE INTO issue_products (issue_id, product_id)
+        SELECT i.id, ps.product_id
+        FROM issues i
+        JOIN product_services ps ON ps.service_id = i.service_id;
+
+        INSERT OR IGNORE INTO issue_products (issue_id, product_id)
+        SELECT iv.issue_id, v.product_id
+        FROM issue_versions iv
+        JOIN versions v ON v.id = iv.version_id;
+      `);
+    }
+  } catch {}
+
   seedDefaultData();
 }
+
+// Ensure database tables and migrations run immediately on module import
+initDatabase();
 
 function seedDefaultData() {
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM products');
@@ -344,31 +373,31 @@ export function getIssues(params?: {
     WHERE iv.issue_id = ?
   `);
 
-  const psStmt = db.prepare(`
-    SELECT product_id FROM product_services WHERE service_id = ?
+  const ipStmt = db.prepare(`
+    SELECT product_id FROM issue_products WHERE issue_id = ?
+  `);
+
+  const fallbackPsStmt = db.prepare(`
+    SELECT DISTINCT product_id FROM (
+      SELECT product_id FROM product_services WHERE service_id = ?
+      UNION
+      SELECT v.product_id FROM issue_versions iv JOIN versions v ON v.id = iv.version_id WHERE iv.issue_id = ?
+    )
   `);
 
   return issues.map(iss => {
     const affected = ivStmt.all(iss.id) as any[];
-    const boundProds = psStmt.all(iss.service_id) as { product_id: number }[];
+    let boundProds = ipStmt.all(iss.id) as { product_id: number }[];
+    if (boundProds.length === 0) {
+      boundProds = fallbackPsStmt.all(iss.service_id, iss.id) as { product_id: number }[];
+    }
     const product_ids = boundProds.map(p => p.product_id);
 
     const prodNamesSet = new Set<string>();
 
-    if (affected.length > 0) {
-      affected.forEach(a => {
-        if (a.product_code) prodNamesSet.add(a.product_code.toUpperCase());
-        else if (a.product_name) prodNamesSet.add(a.product_name);
-      });
-    }
-
-    if (prodNamesSet.size === 0) {
-      const svcProds = db.prepare(`
-        SELECT p.name, p.code FROM products p
-        JOIN product_services ps ON ps.product_id = p.id
-        WHERE ps.service_id = ?
-      `).all(iss.service_id) as any[];
-      svcProds.forEach(p => prodNamesSet.add(p.code ? p.code.toUpperCase() : p.name));
+    if (product_ids.length > 0) {
+      const pRows = db.prepare(`SELECT code, name FROM products WHERE id IN (${product_ids.map(() => '?').join(',')})`).all(...product_ids) as any[];
+      pRows.forEach(p => prodNamesSet.add(p.code ? p.code.toUpperCase() : p.name));
     }
 
     const prodSummary = Array.from(prodNamesSet).join(', ');
@@ -400,9 +429,19 @@ export function getIssueById(id: number): Issue | undefined {
     WHERE iv.issue_id = ?
   `).all(iss.id) as any[];
 
-  const boundProds = db.prepare(`
-    SELECT product_id FROM product_services WHERE service_id = ?
-  `).all(iss.service_id) as { product_id: number }[];
+  const ipStmt = db.prepare(`
+    SELECT product_id FROM issue_products WHERE issue_id = ?
+  `);
+  let boundProds = ipStmt.all(iss.id) as { product_id: number }[];
+  if (boundProds.length === 0) {
+    boundProds = db.prepare(`
+      SELECT DISTINCT product_id FROM (
+        SELECT product_id FROM product_services WHERE service_id = ?
+        UNION
+        SELECT v.product_id FROM issue_versions iv JOIN versions v ON v.id = iv.version_id WHERE iv.issue_id = ?
+      )
+    `).all(iss.service_id, iss.id) as { product_id: number }[];
+  }
   const product_ids = boundProds.map(p => p.product_id);
 
   return {
@@ -435,9 +474,9 @@ export function createOrUpdateIssue(data: {
 
   // Bind service to products if product_id or product_ids provided
   const prodIdsToBind = new Set<number>();
-  if (data.product_id) prodIdsToBind.add(data.product_id);
+  if (data.product_id) prodIdsToBind.add(Number(data.product_id));
   if (data.product_ids && Array.isArray(data.product_ids)) {
-    data.product_ids.forEach(pid => prodIdsToBind.add(pid));
+    data.product_ids.forEach(pid => prodIdsToBind.add(Number(pid)));
   }
 
   const bindStmt = db.prepare('INSERT OR IGNORE INTO product_services (product_id, service_id) VALUES (?, ?)');
@@ -448,11 +487,11 @@ export function createOrUpdateIssue(data: {
   let issueId = data.id;
   if (issueId) {
     const existing = getIssueById(issueId);
-    if (data.product_ids && Array.isArray(data.product_ids) && data.product_ids.length > 0) {
-      db.prepare('DELETE FROM product_services WHERE service_id = ?').run(svc.id);
-      const bindStmt = db.prepare('INSERT OR IGNORE INTO product_services (product_id, service_id) VALUES (?, ?)');
+    if (data.product_ids && Array.isArray(data.product_ids)) {
+      db.prepare('DELETE FROM issue_products WHERE issue_id = ?').run(issueId);
+      const bindStmt = db.prepare('INSERT OR IGNORE INTO issue_products (issue_id, product_id) VALUES (?, ?)');
       for (const pid of data.product_ids) {
-        bindStmt.run(pid, svc.id);
+        bindStmt.run(issueId, Number(pid));
       }
     }
     db.prepare(`
@@ -493,6 +532,13 @@ export function createOrUpdateIssue(data: {
       data.tags || ''
     );
     issueId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
+
+    if (data.product_ids && Array.isArray(data.product_ids)) {
+      const bindStmt = db.prepare('INSERT OR IGNORE INTO issue_products (issue_id, product_id) VALUES (?, ?)');
+      for (const pid of data.product_ids) {
+        bindStmt.run(issueId, Number(pid));
+      }
+    }
   }
 
   // Update version fixes if provided

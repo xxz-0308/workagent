@@ -236,15 +236,16 @@
     }
   }
 
-  async function updateVersionFixStatus(issueId: number, versionName: string, fixStatus: string, patchVersion?: string) {
+  async function updateVersionFixStatus(issueId: number, versionName: string, fixStatus: string, patchVersion?: string, productCode?: string) {
     const prod = products.find(p => p.id === selectedProductId);
+    const targetProdCode = productCode || prod?.code;
     try {
       await fetchJson(`/issues/${issueId}/version-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           version_name: versionName,
-          product_code: prod?.code,
+          product_code: targetProdCode,
           fix_status: fixStatus,
           patch_version: patchVersion
         })

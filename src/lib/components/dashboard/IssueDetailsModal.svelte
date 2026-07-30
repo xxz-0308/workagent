@@ -9,21 +9,39 @@
   export let onClose: () => void;
   export let onSaveIssue: (updatedIssue: any) => Promise<void>;
   export let onDeleteIssue: (id: number) => Promise<void>;
-  export let onUpdateFixStatus: (issueId: number, versionName: string, fixStatus: string, patchVersion?: string) => Promise<void>;
+  export let onUpdateFixStatus: (issueId: number, versionName: string, fixStatus: string, patchVersion?: string, productCode?: string) => Promise<void>;
 
   let activeData: any = null;
   let isCustomService: boolean = false;
   let customServiceName: string = '';
+  let initializedIssueId: number | null = null;
 
-  $: if (issue) {
+  $: if (issue && issue.id !== initializedIssueId) {
+    initializedIssueId = issue.id;
     activeData = JSON.parse(JSON.stringify(issue));
-    if (!activeData.product_ids || activeData.product_ids.length === 0) {
-      if (activeData.product_id) {
-        activeData.product_ids = [activeData.product_id];
-      } else {
-        activeData.product_ids = products.map(p => p.id);
-      }
+
+    const derived = new Set<number>();
+    if (activeData.product_ids && Array.isArray(activeData.product_ids)) {
+      activeData.product_ids.forEach((id: any) => derived.add(Number(id)));
     }
+    if (activeData.product_summary && activeData.product_summary !== '通用/跨产品') {
+      const codes = activeData.product_summary.split(',').map((s: string) => s.trim().toLowerCase());
+      products.forEach(p => {
+        if (codes.includes(p.code.toLowerCase()) || codes.includes(p.name.toLowerCase())) {
+          derived.add(Number(p.id));
+        }
+      });
+    }
+    if (activeData.affected_versions && activeData.affected_versions.length > 0) {
+      activeData.affected_versions.forEach((av: any) => {
+        const pCode = av.product_code || av.product_name;
+        const match = products.find(p => (p.code || '').toLowerCase() === (pCode || '').toLowerCase() || (p.name || '').toLowerCase() === (pCode || '').toLowerCase());
+        if (match) derived.add(Number(match.id));
+      });
+    }
+
+    activeData.product_ids = derived.size > 0 ? Array.from(derived) : products.map(p => Number(p.id));
+
     const isKnown = services.some(s => s.name === activeData.service_name);
     if (!isKnown && activeData.service_name) {
       isCustomService = true;
@@ -34,6 +52,11 @@
     }
   }
 
+  $: if (!issue) {
+    initializedIssueId = null;
+    activeData = null;
+  }
+
   $: groupedVersions = (() => {
     if (!activeData) return [];
 
@@ -41,7 +64,9 @@
     const affectedMap = new Map<string, any>();
     if (activeData.affected_versions) {
       activeData.affected_versions.forEach((av: any) => {
-        affectedMap.set(av.version_name, av);
+        const pCode = av.product_code || av.product_name;
+        const key = pCode ? `${pCode.toUpperCase()}_${av.version_name}` : av.version_name;
+        affectedMap.set(key, av);
       });
     }
 
@@ -49,7 +74,7 @@
       const prodVers = versions.filter(v => v.product_id === p.id);
       if (prodVers.length > 0) {
         const items = prodVers.map(v => {
-          const match = affectedMap.get(v.version_name);
+          const match = affectedMap.get(`${p.code.toUpperCase()}_${v.version_name}`) || affectedMap.get(v.version_name);
           return {
             version_name: v.version_name,
             fix_status: match ? match.fix_status : 'na',
@@ -68,35 +93,42 @@
   })();
 
   function toggleProductSelection(prodId: number | 'all') {
+    if (!activeData.product_ids) activeData.product_ids = [];
     if (prodId === 'all') {
-      if (activeData.product_ids?.length === products.length) {
+      if (activeData.product_ids.length === products.length) {
         activeData.product_ids = [];
       } else {
-        activeData.product_ids = products.map((p: any) => p.id);
+        activeData.product_ids = products.map((p: any) => Number(p.id));
       }
     } else {
-      let current = activeData.product_ids || [];
-      if (current.includes(prodId)) {
-        current = current.filter((id: number) => id !== prodId);
+      const numId = Number(prodId);
+      let current = activeData.product_ids.map(Number);
+      if (current.includes(numId)) {
+        current = current.filter((id: number) => id !== numId);
       } else {
-        current = [...current, prodId];
+        current = [...current, numId];
       }
       activeData.product_ids = current;
     }
+    activeData = { ...activeData };
   }
 
-  async function handleStatusPillClick(verName: string, status: string, currentPatch?: string) {
+  async function handleStatusPillClick(verName: string, status: string, currentPatch?: string, productCode?: string) {
     if (!activeData.affected_versions) activeData.affected_versions = [];
-    let match = activeData.affected_versions.find((av: any) => av.version_name === verName);
+    let match = activeData.affected_versions.find((av: any) =>
+      av.version_name === verName &&
+      (!productCode || (av.product_code && av.product_code.toUpperCase() === productCode.toUpperCase()))
+    );
     if (!match) {
-      match = { version_name: verName, fix_status: status, patch_version: currentPatch || '' };
+      match = { version_name: verName, product_code: productCode, fix_status: status, patch_version: currentPatch || '' };
       activeData.affected_versions.push(match);
     } else {
       match.fix_status = status;
+      if (productCode) match.product_code = productCode;
       if (currentPatch !== undefined) match.patch_version = currentPatch;
     }
-    // Live save fix status
-    await onUpdateFixStatus(activeData.id, verName, status, match.patch_version);
+    activeData = { ...activeData, affected_versions: [...activeData.affected_versions] };
+    await onUpdateFixStatus(activeData.id, verName, status, match.patch_version, productCode);
   }
 
   async function handleSave() {
@@ -157,7 +189,7 @@
               {#each products as p}
                 <button
                   type="button"
-                  class="prod-pill {activeData.product_ids?.includes(p.id) ? 'active' : ''}"
+                  class="prod-pill {activeData.product_ids?.some(id => Number(id) === Number(p.id)) ? 'active' : ''}"
                   on:click={() => toggleProductSelection(p.id)}
                 >
                   {p.code.toUpperCase()}
@@ -273,7 +305,7 @@
         <div class="info-section glass-panel">
           <div class="section-title">
             <CheckCircle size={16} class="title-icon" />
-            <span>各产品版本修复与补丁全景矩阵 (直接点按修改)</span>
+            <span>各产品版本修复与补丁全景矩阵</span>
           </div>
 
           <div class="version-groups-container">
@@ -293,28 +325,28 @@
                         <button
                           type="button"
                           class="status-pill na {item.fix_status === 'na' ? 'active' : ''}"
-                          on:click={() => handleStatusPillClick(item.version_name, 'na')}
+                          on:click={() => handleStatusPillClick(item.version_name, 'na', undefined, group.product_code)}
                         >
                           ⚪ 不涉及
                         </button>
                         <button
                           type="button"
                           class="status-pill unfixed {item.fix_status === 'unfixed' ? 'active' : ''}"
-                          on:click={() => handleStatusPillClick(item.version_name, 'unfixed')}
+                          on:click={() => handleStatusPillClick(item.version_name, 'unfixed', undefined, group.product_code)}
                         >
                           🔴 未修复
                         </button>
                         <button
                           type="button"
                           class="status-pill fixed {item.fix_status === 'fixed' ? 'active' : ''}"
-                          on:click={() => handleStatusPillClick(item.version_name, 'fixed')}
+                          on:click={() => handleStatusPillClick(item.version_name, 'fixed', undefined, group.product_code)}
                         >
                           🟡 已修复
                         </button>
                         <button
                           type="button"
                           class="status-pill patched {item.fix_status === 'patched' ? 'active' : ''}"
-                          on:click={() => handleStatusPillClick(item.version_name, 'patched', item.patch_version)}
+                          on:click={() => handleStatusPillClick(item.version_name, 'patched', item.patch_version, group.product_code)}
                         >
                           🟢 已合入 {item.patch_version ? `(${item.patch_version})` : ''}
                         </button>
@@ -326,7 +358,7 @@
                           class="apple-input patch-num-input"
                           placeholder="补丁号如 23.1_P01"
                           value={item.patch_version}
-                          on:change={(e) => handleStatusPillClick(item.version_name, 'patched', e.currentTarget.value)}
+                          on:change={(e) => handleStatusPillClick(item.version_name, 'patched', e.currentTarget.value, group.product_code)}
                         />
                       {/if}
                     </div>
