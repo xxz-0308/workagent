@@ -19,8 +19,8 @@ powershell -WindowStyle Hidden -Command "Start-Process -FilePath 'node' -Argumen
 REM Wait for backend
 timeout /t 3 /nobreak >nul
 
-REM Start frontend via PowerShell hidden
-powershell -WindowStyle Hidden -Command "Start-Process -FilePath 'node' -ArgumentList 'node_modules/vite/bin/vite.js','--port','5173' -WindowStyle Hidden"
+REM Start frontend via PowerShell hidden (--host exposes to LAN)
+powershell -WindowStyle Hidden -Command "Start-Process -FilePath 'node' -ArgumentList 'node_modules/vite/bin/vite.js','--port','5173','--host' -WindowStyle Hidden"
 
 REM Open browser
 timeout /t 2 /nobreak >nul
