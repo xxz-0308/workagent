@@ -745,7 +745,7 @@
   .main-title {
     font-size: 22px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-primary);
     letter-spacing: -0.4px;
   }
 

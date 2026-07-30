@@ -62,8 +62,9 @@
           <tr>
             <th style="width: 95px;">ISSUE KEY</th>
             <th>问题标题 / 现象描述</th>
-            <th style="width: 130px;">所属产品</th>
-            <th style="width: 130px;">所属服务</th>
+            <th style="width: 150px;">标签</th>
+            <th style="width: 120px;">所属产品</th>
+            <th style="width: 120px;">所属服务</th>
             <th style="width: 100px;">严重度</th>
             <th style="width: 110px;">定位状态</th>
             <th style="width: 110px; text-align: right;">操作</th>
@@ -80,16 +81,21 @@
                 <div class="title-heading-row">
                   <span class="inline-prod-badge">{issue.product_summary || 'ALL'}</span>
                   <span class="title-text">{issue.title}</span>
-                  {#if issue.tags}
-                    <div class="tag-pills-row">
-                      {#each issue.tags.split(',').filter((t: string) => t.trim()) as tag}
-                        <span class="tag-pill">🏷️ {tag.trim()}</span>
-                      {/each}
-                    </div>
-                  {/if}
                 </div>
                 {#if issue.description}
                   <div class="desc-snippet">{issue.description}</div>
+                {/if}
+              </td>
+
+              <td class="tags-col">
+                {#if issue.tags && issue.tags.trim()}
+                  <div class="tag-pills-row">
+                    {#each issue.tags.split(',').filter((t: string) => t.trim()) as tag}
+                      <span class="tag-pill">🏷️ {tag.trim()}</span>
+                    {/each}
+                  </div>
+                {:else}
+                  <span class="no-tags">-</span>
                 {/if}
               </td>
 
@@ -181,6 +187,7 @@
         <span class="size-label">每页显示:</span>
         <div class="size-select-wrap">
           <AppleSelect
+            dropUp={true}
             options={[
               { value: 10, label: '10 条/页' },
               { value: 20, label: '20 条/页' },
@@ -200,7 +207,8 @@
   .table-card {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
+    position: relative;
   }
 
   .table-container {
@@ -238,7 +246,7 @@
 
   td {
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--glass-border);
     vertical-align: middle;
   }
 
@@ -247,7 +255,7 @@
   }
 
   .issue-row:hover {
-    background: rgba(255, 255, 255, 0.035);
+    background: var(--glass-bg-hover);
   }
 
   .id-col {
@@ -276,8 +284,8 @@
   }
 
   .inline-prod-badge {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
     color: var(--text-primary);
     padding: 1px 6px;
     border-radius: 4px;
@@ -297,16 +305,23 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    flex-wrap: wrap;
   }
 
   .tag-pill {
     background: rgba(99, 102, 241, 0.15);
     border: 1px solid rgba(99, 102, 241, 0.28);
     color: var(--text-primary);
-    padding: 1px 6px;
+    padding: 2px 7px;
     border-radius: 4px;
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 500;
+  }
+
+  .no-tags {
+    color: var(--text-muted);
+    font-size: 12px;
+    padding-left: 4px;
   }
 
   .desc-snippet {
@@ -319,8 +334,8 @@
   }
 
   .product-tag {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
     color: var(--text-primary);
     padding: 4px 10px;
     border-radius: var(--radius-sm);
@@ -431,7 +446,7 @@
     gap: 12px;
     padding: 12px 18px;
     border-top: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--bg-tertiary);
     user-select: none;
   }
 

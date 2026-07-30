@@ -183,8 +183,8 @@
     right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
     border-radius: 4px;
     padding: 2px 5px;
     font-size: 10.5px;

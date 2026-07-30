@@ -5,6 +5,7 @@
   export let options: { value: any; label: string; group?: string }[] = [];
   export let value: any = null;
   export let placeholder: string = '请选择...';
+  export let dropUp: boolean = false;
   export let onChange: ((val: any) => void) | undefined = undefined;
 
   let isOpen: boolean = false;
@@ -48,7 +49,7 @@
 
   <!-- Floating Glass Dropdown Menu -->
   {#if isOpen}
-    <div class="dropdown-menu">
+    <div class="dropdown-menu {dropUp ? 'drop-up' : ''}">
       <div class="options-scroll">
         {#each options as option}
           <button
@@ -94,7 +95,7 @@
 
   .select-trigger:hover {
     background: var(--glass-bg-hover);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--glass-border-hover);
   }
 
   .select-trigger.open {
@@ -125,13 +126,18 @@
     left: 0;
     width: 100%;
     min-width: 190px;
-    background: #1c2128;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--dropdown-bg, #1c2128);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-lg);
     z-index: 99999;
     padding: 6px;
     animation: menuFade 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .dropdown-menu.drop-up {
+    top: auto;
+    bottom: calc(100% + 6px);
   }
 
   [data-theme="light"] .dropdown-menu {

@@ -139,10 +139,10 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--bg-tertiary);
     padding: 4px;
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
   }
 
   .nav-item {

@@ -431,13 +431,37 @@ export function createOrUpdateIssue(data: {
 
   let issueId = data.id;
   if (issueId) {
+    const existing = getIssueById(issueId);
+    if (data.product_ids && Array.isArray(data.product_ids) && data.product_ids.length > 0) {
+      db.prepare('DELETE FROM product_services WHERE service_id = ?').run(svc.id);
+      const bindStmt = db.prepare('INSERT OR IGNORE INTO product_services (product_id, service_id) VALUES (?, ?)');
+      for (const pid of data.product_ids) {
+        bindStmt.run(pid, svc.id);
+      }
+    }
     db.prepare(`
       UPDATE issues
-      SET title = ?, description = COALESCE(?, description), root_cause = COALESCE(?, root_cause),
-          service_id = ?, severity = COALESCE(?, severity), status = COALESCE(?, status),
-          impact = COALESCE(?, impact), tags = COALESCE(?, tags), updated_at = CURRENT_TIMESTAMP
+      SET title = ?,
+          description = ?,
+          root_cause = ?,
+          service_id = ?,
+          severity = ?,
+          status = ?,
+          impact = ?,
+          tags = ?,
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(data.title, data.description, data.root_cause, svc.id, data.severity, data.status, data.impact, data.tags || '', issueId);
+    `).run(
+      data.title,
+      data.description !== undefined ? data.description : (existing?.description || ''),
+      data.root_cause !== undefined ? data.root_cause : (existing?.root_cause || ''),
+      svc.id,
+      data.severity || existing?.severity || 'medium',
+      data.status || existing?.status || 'analyzing',
+      data.impact !== undefined ? data.impact : (existing?.impact || ''),
+      data.tags !== undefined ? data.tags : (existing?.tags || ''),
+      issueId
+    );
   } else {
     db.prepare(`
       INSERT INTO issues (title, description, root_cause, service_id, severity, status, impact, tags)

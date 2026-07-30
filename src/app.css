@@ -39,24 +39,29 @@
 }
 
 [data-theme="light"] {
-  --bg-primary: #f1f5f9;
+  --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f8fafc;
-  --glass-bg: rgba(255, 255, 255, 0.95);
+  --bg-tertiary: #f1f5f9;
+  --glass-bg: rgba(255, 255, 255, 0.92);
   --glass-bg-hover: #e2e8f0;
-  --glass-border: rgba(0, 0, 0, 0.12);
-  --glass-border-hover: rgba(0, 0, 0, 0.22);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-border-hover: rgba(15, 23, 42, 0.22);
   --glass-blur: blur(20px) saturate(180%);
 
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #64748b;
 
+  --accent-blue: #4f46e5;
+  --accent-blue-hover: #4338ca;
+  --accent-purple: #7e22ce;
+  --accent-indigo: #4338ca;
+
   --dropdown-bg: #ffffff;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.15);
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.12);
 }
 
 * {

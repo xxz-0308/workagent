@@ -41,8 +41,8 @@
     flex-direction: column;
     justify-content: space-between;
     gap: 12px;
-    background: rgba(18, 20, 26, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     position: relative;
     overflow: hidden;
@@ -51,8 +51,8 @@
 
   .stats-card:hover {
     transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-md);
   }
 
   .card-top {
@@ -104,7 +104,7 @@
   .value {
     font-size: 28px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-primary);
     line-height: 1.1;
   }
 

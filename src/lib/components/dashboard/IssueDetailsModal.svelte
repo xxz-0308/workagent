@@ -413,13 +413,15 @@
     font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
-    border: 1px solid transparent;
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    padding: 4px 10px;
   }
 
   .title-edit-input:focus {
     border-color: var(--accent-blue);
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
   }
 
   .header-actions {
