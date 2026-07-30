@@ -8,13 +8,17 @@
   export let pageSize: number = 10;
   export let isLoading: boolean = false;
   export let selectedVersionName: string = '';
+  export let selectedProductCode: string = '';
   export let onSelectIssue: (issue: any) => void;
   export let onDeleteIssue: (id: number) => void;
   export let onPageChange: ((page: number, pageSize: number) => void) | undefined = undefined;
 
-  function getVersionFixStatus(issue: any, verName: string): string {
+  function getVersionFixStatus(issue: any, verName: string, prodCode: string): string {
     if (!verName || !issue.affected_versions) return '';
-    const match = issue.affected_versions.find((av: any) => av.version_name === verName);
+    let match = issue.affected_versions.find((av: any) => av.version_name === verName && av.product_code === prodCode);
+    if (!match && prodCode) {
+      match = issue.affected_versions.find((av: any) => av.version_name === verName);
+    }
     return match ? match.fix_status : '';
   }
 
@@ -106,7 +110,7 @@
             <th style="width: 100px;">严重度</th>
             <th style="width: 110px;">定位状态</th>
             {#if selectedVersionName}
-              <th style="width: 100px;">{selectedVersionName} 修复</th>
+              <th style="width: 95px;">修复状态</th>
             {/if}
             <th style="width: 110px; text-align: right;">操作</th>
           </tr>
@@ -164,7 +168,7 @@
 
               {#if selectedVersionName}
                 <td>
-                  {@const fs = getVersionFixStatus(issue, selectedVersionName)}
+                  {@const fs = getVersionFixStatus(issue, selectedVersionName, selectedProductCode)}
                   {#if fs}
                     <span class="version-fix-badge" style="background: {versionFixColor(fs)}20; color: {versionFixColor(fs)}; border: 1px solid {versionFixColor(fs)}40;">
                       {versionFixLabel(fs)}

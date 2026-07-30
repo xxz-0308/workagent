@@ -399,6 +399,7 @@
   }
 
   $: selectedVersionName = selectedVersionId ? (versions.find(v => v.id === selectedVersionId)?.version_name || '') : '';
+  $: selectedProductCode = selectedProductId ? (products.find(p => p.id === selectedProductId)?.code || '') : '';
   $: totalCount = stats?.total || 0;
   $: analyzingCount = stats?.analyzing || 0;
   $: locatedCount = stats?.located || 0;
@@ -464,6 +465,7 @@
     {pageSize}
     {isLoading}
     {selectedVersionName}
+    {selectedProductCode}
     onSelectIssue={(issue) => selectedIssueForDetails = issue}
     onDeleteIssue={promptDeleteIssue}
     onPageChange={handlePageChange}
