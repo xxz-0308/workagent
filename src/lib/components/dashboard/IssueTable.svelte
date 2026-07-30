@@ -167,8 +167,8 @@
               </td>
 
               {#if selectedVersionName}
+                {@const fs = getVersionFixStatus(issue, selectedVersionName, selectedProductCode)}
                 <td>
-                  {@const fs = getVersionFixStatus(issue, selectedVersionName, selectedProductCode)}
                   {#if fs}
                     <span class="version-fix-badge" style="background: {versionFixColor(fs)}20; color: {versionFixColor(fs)}; border: 1px solid {versionFixColor(fs)}40;">
                       {versionFixLabel(fs)}
