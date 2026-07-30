@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun, FolderGit2 } from 'lucide-svelte';
+  import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun } from 'lucide-svelte';
   import { fetchJson } from '../../api/client';
+  import { toastError, toastSuccess } from '../../stores/toast';
 
   export let theme: 'dark' | 'light' = 'dark';
   export let onToggleTheme: () => void;
@@ -9,8 +10,8 @@
   let apiKey: string = '';
   let baseUrl: string = 'https://api.openai.com/v1';
   let model: string = 'gpt-4o';
-  let codebasePath: string = '';
   let isSaved: boolean = false;
+  let isTesting: boolean = false;
 
   let rules: any[] = [];
 
@@ -25,7 +26,6 @@
       apiKey = data.apiKey || '';
       baseUrl = data.baseUrl || 'https://api.openai.com/v1';
       model = data.model || 'gpt-4o';
-      codebasePath = data.codebasePath || '';
     } catch {}
   }
 
@@ -40,12 +40,36 @@
       await fetchJson('/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, baseUrl, model, codebasePath })
+        body: JSON.stringify({ apiKey, baseUrl, model })
       });
       isSaved = true;
       setTimeout(() => (isSaved = false), 2500);
     } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
+      toastError(`保存失败: ${err.message}`);
+    }
+  }
+
+  async function testConnection() {
+    if (!apiKey) {
+      toastError('请先填写 API Key');
+      return;
+    }
+    isTesting = true;
+    try {
+      const res = await fetchJson('/settings/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, baseUrl, model })
+      });
+      if (res.ok) {
+        toastSuccess('API 连接测试成功！');
+      } else {
+        toastError(res.error || '连接测试失败');
+      }
+    } catch (err: any) {
+      toastError(`连接测试失败: ${err.message}`);
+    } finally {
+      isTesting = false;
     }
   }
 </script>
@@ -57,7 +81,7 @@
     <!-- LLM Configuration Panel -->
     <div class="settings-panel glass-panel">
       <div class="panel-header">
-        <Cpu size={20} class="icon-blue" />
+        <span class="icon-blue"><Cpu size={20} /></span>
         <div>
           <h3>大模型 API 设置</h3>
           <p class="panel-sub">配置你的 OpenAI 或 Claude 格式 API 端点</p>
@@ -95,18 +119,14 @@
         />
       </div>
 
-      <div class="form-group">
-        <label><FolderGit2 size={14} /> 代码仓绝对路径 (Codebase Directory)</label>
-        <input
-          type="text"
-          class="apple-input"
-          bind:value={codebasePath}
-          placeholder="如: C:/Projects/my-system 或 /home/user/code"
-        />
-        <span class="field-hint">设置代码仓路径后，AI 定位助手可自动扫描该目录树并检索源码文件</span>
-      </div>
-
       <div class="btn-wrap">
+        <button class="apple-button-secondary apple-button" on:click={testConnection} disabled={isTesting}>
+          {#if isTesting}
+            <span>测试中...</span>
+          {:else}
+            <span>测试连接</span>
+          {/if}
+        </button>
         <button class="apple-button" on:click={saveSettings}>
           {#if isSaved}
             <Check size={16} />
@@ -121,7 +141,7 @@
     <!-- Theme & UI Settings -->
     <div class="settings-panel glass-panel">
       <div class="panel-header">
-        <Moon size={20} class="icon-indigo" />
+        <span class="icon-indigo"><Moon size={20} /></span>
         <div>
           <h3>界面与外观</h3>
           <p class="panel-sub">个性化调整界面效果与深浅色模式</p>
@@ -143,7 +163,7 @@
     <!-- Solidified Rules Panel -->
     <div class="settings-panel glass-panel full-width">
       <div class="panel-header">
-        <BookOpen size={20} class="icon-purple" />
+        <span class="icon-purple"><BookOpen size={20} /></span>
         <div>
           <h3>对话固化的业务规则列表</h3>
           <p class="panel-sub">通过 Agent 对话自动解析保存的产品、版本与服务划分规则</p>
@@ -260,6 +280,8 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
   }
 
   .rule-card {

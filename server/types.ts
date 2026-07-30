@@ -86,11 +86,17 @@ export interface Message {
   created_at?: string;
 }
 
+export interface PaginatedIssues {
+  issues: Issue[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface AppSettings {
   apiKey: string;
   baseUrl: string;
   model: string;
   theme: 'dark' | 'light';
   language: 'zh' | 'en';
-  codebasePath?: string;
 }

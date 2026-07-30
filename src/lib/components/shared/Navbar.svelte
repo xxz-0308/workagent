@@ -72,7 +72,7 @@
   .navbar-wrapper {
     position: sticky;
     top: 12px;
-    z-index: 100;
+    z-index: 1100;
     padding: 0 20px;
     margin-bottom: 12px;
   }

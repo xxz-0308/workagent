@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X, ShieldAlert, CheckCircle, Clock, Tag, Server, Code, FileText, Save, Trash2 } from 'lucide-svelte';
   import AppleSelect from '../shared/AppleSelect.svelte';
+  import { toastError } from '../../stores/toast';
 
   export let issue: any = null;
   export let products: any[] = [];
@@ -134,7 +135,7 @@
   async function handleSave() {
     const finalSvc = isCustomService ? customServiceName.trim() : activeData.service_name;
     if (!activeData.title || !finalSvc) {
-      alert('请填写问题标题与服务名称');
+      toastError('请填写问题标题与服务名称');
       return;
     }
     activeData.service_name = finalSvc;
@@ -276,7 +277,7 @@
         <!-- Section 1: Root Cause & Code Analysis -->
         <div class="info-section cause-section glass-panel">
           <div class="section-title">
-            <Code size={16} class="title-icon" />
+            <span class="title-icon"><Code size={16} /></span>
             <span>根因 / 代码 Bug 疑点分析结论</span>
           </div>
           <textarea
@@ -290,7 +291,7 @@
         <!-- Section 2: Detailed Description -->
         <div class="info-section glass-panel">
           <div class="section-title">
-            <FileText size={16} class="title-icon" />
+            <span class="title-icon"><FileText size={16} /></span>
             <span>现场现象与问题详细描述</span>
           </div>
           <textarea
@@ -304,7 +305,7 @@
         <!-- Section 3: Version Fix Matrix -->
         <div class="info-section glass-panel">
           <div class="section-title">
-            <CheckCircle size={16} class="title-icon" />
+            <span class="title-icon"><CheckCircle size={16} /></span>
             <span>各产品版本修复与补丁全景矩阵</span>
           </div>
 
@@ -394,7 +395,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 1200;
     padding: 20px;
     animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -415,6 +416,12 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
+  }
+
+  .modal-body {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
   }
 
   .modal-header {

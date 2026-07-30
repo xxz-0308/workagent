@@ -75,7 +75,7 @@
 
 <div class="filter-bar glass-panel">
   <div class="search-input-wrap">
-    <Search size={15} class="search-icon" />
+    <span class="search-icon"><Search size={15} /></span>
     <input
       type="text"
       bind:this={searchInputEl}
@@ -224,7 +224,7 @@
     gap: 6px;
     font-size: 12.5px;
     color: var(--text-secondary);
-    height: 36px;
+    line-height: 38px;
   }
 
   .custom-select-wrap {
@@ -234,6 +234,7 @@
   .label {
     font-weight: 500;
     white-space: nowrap;
+    line-height: 38px;
   }
 
   .patch-checklist-btn {

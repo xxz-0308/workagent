@@ -9,7 +9,8 @@ import type {
   Rule,
   Conversation,
   Message,
-  AppSettings
+  AppSettings,
+  PaginatedIssues
 } from '../types.js';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -311,6 +312,20 @@ export function createVersion(productId: number, versionName: string): Version {
   return db.prepare('SELECT v.*, p.name as product_name FROM versions v JOIN products p ON p.id = v.product_id WHERE v.id = ?').get(info.id) as Version;
 }
 
+export function getIssueStats() {
+  return db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'analyzing' THEN 1 ELSE 0 END) as analyzing,
+      SUM(CASE WHEN status = 'located' THEN 1 ELSE 0 END) as located,
+      SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed,
+      SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_severity,
+      SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium_severity,
+      SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low_severity
+    FROM issues
+  `).get() as { total: number; analyzing: number; located: number; closed: number; high_severity: number; medium_severity: number; low_severity: number };
+}
+
 export function getIssues(params?: {
   productId?: number;
   versionId?: number;
@@ -319,50 +334,70 @@ export function getIssues(params?: {
   fixStatus?: string;
   tag?: string;
   search?: string;
-}): Issue[] {
-  let query = `
-    SELECT DISTINCT i.*, s.name as service_name
-    FROM issues i
-    JOIN services s ON s.id = i.service_id
-    LEFT JOIN issue_versions iv ON iv.issue_id = i.id
-    LEFT JOIN versions v ON v.id = iv.version_id
-    WHERE 1=1
-  `;
+  page?: number;
+  pageSize?: number;
+}): PaginatedIssues {
+  let where = ` WHERE 1=1`;
   const args: any[] = [];
 
   if (params?.productId) {
-    query += ` AND (v.product_id = ? OR i.service_id IN (SELECT service_id FROM product_services WHERE product_id = ?))`;
+    where += ` AND (v.product_id = ? OR i.service_id IN (SELECT service_id FROM product_services WHERE product_id = ?))`;
     args.push(params.productId, params.productId);
   }
   if (params?.versionId) {
-    query += ` AND iv.version_id = ?`;
+    where += ` AND iv.version_id = ?`;
     args.push(params.versionId);
   }
   if (params?.serviceId) {
-    query += ` AND i.service_id = ?`;
+    where += ` AND i.service_id = ?`;
     args.push(params.serviceId);
   }
   if (params?.status) {
-    query += ` AND i.status = ?`;
+    where += ` AND i.status = ?`;
     args.push(params.status);
   }
   if (params?.fixStatus) {
-    query += ` AND iv.fix_status = ?`;
+    where += ` AND iv.fix_status = ?`;
     args.push(params.fixStatus);
   }
   if (params?.tag) {
-    query += ` AND i.tags LIKE ?`;
+    where += ` AND i.tags LIKE ?`;
     args.push(`%${params.tag}%`);
   }
   if (params?.search) {
-    query += ` AND (i.title LIKE ? OR i.description LIKE ? OR i.root_cause LIKE ? OR s.name LIKE ? OR i.tags LIKE ?)`;
+    where += ` AND (i.title LIKE ? OR i.description LIKE ? OR i.root_cause LIKE ? OR s.name LIKE ? OR i.tags LIKE ?)`;
     const searchPattern = `%${params.search}%`;
     args.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
   }
 
-  query += ` ORDER BY i.updated_at DESC`;
+  const fromJoins = `
+    FROM issues i
+    JOIN services s ON s.id = i.service_id
+    LEFT JOIN issue_versions iv ON iv.issue_id = i.id
+    LEFT JOIN versions v ON v.id = iv.version_id
+  `;
 
-  const issues = db.prepare(query).all(...args) as any[];
+  // COUNT query (without pagination)
+  const countQuery = `SELECT COUNT(DISTINCT i.id) as total ${fromJoins} ${where}`;
+  const { total } = db.prepare(countQuery).get(...args) as { total: number };
+
+  // Pagination (pageSize of 0 means no pagination — fetch all)
+  const page = Math.max(1, params?.page ?? 1);
+  const pageSize = params?.pageSize ?? 50;
+  const effectivePageSize = pageSize === 0 ? 0 : Math.min(200, Math.max(1, pageSize));
+  const offset = (page - 1) * effectivePageSize;
+
+  let dataQuery = `SELECT DISTINCT i.*, s.name as service_name ${fromJoins} ${where} ORDER BY i.updated_at DESC`;
+  let dataArgs: any[];
+
+  if (effectivePageSize > 0) {
+    dataQuery += ` LIMIT ? OFFSET ?`;
+    dataArgs = [...args, effectivePageSize, offset];
+  } else {
+    dataArgs = [...args];
+  }
+
+  const issues = db.prepare(dataQuery).all(...dataArgs) as any[];
 
   // Attach affected versions, product_ids and product names for each issue
   const ivStmt = db.prepare(`
@@ -385,7 +420,7 @@ export function getIssues(params?: {
     )
   `);
 
-  return issues.map(iss => {
+  const enrichedIssues = issues.map(iss => {
     const affected = ivStmt.all(iss.id) as any[];
     let boundProds = ipStmt.all(iss.id) as { product_id: number }[];
     if (boundProds.length === 0) {
@@ -409,6 +444,8 @@ export function getIssues(params?: {
       affected_versions: affected
     };
   });
+
+  return { issues: enrichedIssues, total, page, pageSize: effectivePageSize };
 }
 
 export function getIssueById(id: number): Issue | undefined {
@@ -677,6 +714,11 @@ export function deleteConversation(id: string) {
   db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
 }
 
+export function updateConversationTitle(id: string, title: string) {
+  db.prepare('UPDATE conversations SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(title, id);
+  return db.prepare('SELECT * FROM conversations WHERE id = ?').get(id);
+}
+
 export function getMessages(conversationId: string): Message[] {
   return db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY id ASC').all(conversationId) as Message[];
 }
@@ -687,7 +729,7 @@ export function saveMessage(msg: Message) {
   if (!conv) {
     db.prepare('INSERT INTO conversations (id, title) VALUES (?, ?)').run(
       msg.conversation_id,
-      msg.content.slice(0, 30) || '新对话'
+      '新对话'
     );
   } else {
     db.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(msg.conversation_id);

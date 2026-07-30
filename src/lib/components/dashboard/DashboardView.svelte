@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AlertCircle, CheckCircle2, Clock, Plus, X, FileText, Check, ShieldAlert, Trash2 } from 'lucide-svelte';
+  import { AlertCircle, CheckCircle2, Clock, Plus, X, FileText, Check, ShieldAlert, Trash2, Download } from 'lucide-svelte';
   import StatsCard from './StatsCard.svelte';
   import FilterBar from './FilterBar.svelte';
   import IssueTable from './IssueTable.svelte';
@@ -8,11 +8,16 @@
   import AppleConfirmModal from '../shared/AppleConfirmModal.svelte';
   import IssueDetailsModal from './IssueDetailsModal.svelte';
   import { fetchJson } from '../../api/client';
+  import { toastError, toastSuccess } from '../../stores/toast';
 
   let products: any[] = [];
   let versions: any[] = [];
   let services: any[] = [];
   let issues: any[] = [];
+  let totalIssues: number = 0;
+  let currentPage: number = 1;
+  let pageSize: number = 10;
+  let isLoading: boolean = false;
 
   let selectedProductId: number | null = null;
   let selectedVersionId: number | null = null;
@@ -38,6 +43,7 @@
   onMount(() => {
     loadMetadata();
     loadIssues();
+    loadStats();
   });
 
   async function loadMetadata() {
@@ -49,6 +55,7 @@
   }
 
   async function loadIssues() {
+    isLoading = true;
     try {
       const params = new URLSearchParams();
       if (selectedProductId) params.append('productId', String(selectedProductId));
@@ -57,14 +64,53 @@
       if (selectedStatus) params.append('status', selectedStatus);
       if (selectedTag) params.append('tag', selectedTag);
       if (searchQuery) params.append('search', searchQuery);
+      params.append('page', String(currentPage));
+      params.append('pageSize', String(pageSize));
 
-      issues = await fetchJson(`/issues?${params.toString()}`);
+      const result = await fetchJson(`/issues?${params.toString()}`);
+      if (result && Array.isArray(result.issues)) {
+        issues = result.issues;
+        totalIssues = result.total;
+      } else if (Array.isArray(result)) {
+        // Backwards compat: if server returns plain array
+        issues = result;
+        totalIssues = result.length;
+      } else {
+        issues = [];
+        totalIssues = 0;
+      }
     } catch {
       issues = [];
+      totalIssues = 0;
+    } finally {
+      isLoading = false;
     }
   }
 
   function handleFilterChange() {
+    currentPage = 1;
+    loadIssues();
+  }
+
+  function exportIssues(format: 'csv' | 'json') {
+    const params = new URLSearchParams();
+    if (selectedProductId) params.append('productId', String(selectedProductId));
+    if (selectedVersionId) params.append('versionId', String(selectedVersionId));
+    if (selectedServiceId) params.append('serviceId', String(selectedServiceId));
+    if (selectedStatus) params.append('status', selectedStatus);
+    if (selectedTag) params.append('tag', selectedTag);
+    if (searchQuery) params.append('search', searchQuery);
+    params.append('format', format);
+    // Trigger download via hidden link
+    const a = document.createElement('a');
+    a.href = `/api/issues/export?${params.toString()}`;
+    a.download = '';
+    a.click();
+  }
+
+  function handlePageChange(page: number, size: number) {
+    currentPage = page;
+    pageSize = size;
     loadIssues();
   }
 
@@ -77,7 +123,7 @@
       checklistData = await fetchJson(`/issues/patch-checklist/${prod.code}/${ver.version_name}`);
       showChecklistDrawer = true;
     } catch (err: any) {
-      alert(`无法获取补丁清单: ${err.message}`);
+      toastError(`无法获取补丁清单: ${err.message}`);
     }
   }
 
@@ -189,7 +235,7 @@
   async function saveIssueForm() {
     const finalServiceName = isCustomService ? customServiceName.trim() : activeIssue.service_name;
     if (!activeIssue.title || !finalServiceName) {
-      alert('请填写标题和服务名称');
+      toastError('请填写标题和服务名称');
       return;
     }
 
@@ -205,13 +251,13 @@
       await loadMetadata();
       await loadIssues();
     } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
+      toastError(`保存失败: ${err.message}`);
     }
   }
 
   async function saveNewProduct() {
     if (!newProductData.name || !newProductData.code) {
-      alert('请填写产品名称与产品代码');
+      toastError('请填写产品名称与产品代码');
       return;
     }
     try {
@@ -232,7 +278,7 @@
       newProductData = { name: '', code: '', version_format: '', description: '', initial_versions_str: '' };
       await loadMetadata();
     } catch (err: any) {
-      alert(`新建产品失败: ${err.message}`);
+      toastError(`新建产品失败: ${err.message}`);
     }
   }
 
@@ -258,7 +304,7 @@
         openPatchChecklist();
       }
     } catch (err: any) {
-      alert(`更新状态失败: ${err.message}`);
+      toastError(`更新状态失败: ${err.message}`);
     }
   }
 
@@ -273,7 +319,7 @@
       await loadIssues();
       selectedIssueForDetails = null;
     } catch (err: any) {
-      alert(`保存修改失败: ${err.message}`);
+      toastError(`保存修改失败: ${err.message}`);
     }
   }
 
@@ -296,7 +342,7 @@
           await loadMetadata();
           await loadIssues();
         } catch (err: any) {
-          alert(`删除产品失败: ${err.message}`);
+          toastError(`删除产品失败: ${err.message}`);
         } finally {
           confirmDialog.open = false;
         }
@@ -317,7 +363,7 @@
             selectedIssueForDetails = null;
           }
         } catch (err: any) {
-          alert(`删除失败: ${err.message}`);
+          toastError(`删除失败: ${err.message}`);
         } finally {
           confirmDialog.open = false;
         }
@@ -325,10 +371,18 @@
     };
   }
 
-  $: totalCount = issues.length;
-  $: analyzingCount = issues.filter(i => i.status === 'analyzing').length;
-  $: locatedCount = issues.filter(i => i.status === 'located').length;
-  $: highSeverityCount = issues.filter(i => i.severity === 'high').length;
+  let stats: any = { total: 0, analyzing: 0, located: 0, high_severity: 0 };
+
+  async function loadStats() {
+    try {
+      stats = await fetchJson('/issues/stats');
+    } catch {}
+  }
+
+  $: totalCount = stats?.total || 0;
+  $: analyzingCount = stats?.analyzing || 0;
+  $: locatedCount = stats?.located || 0;
+  $: highSeverityCount = stats?.high_severity || 0;
 </script>
 
 <div class="dashboard-container">
@@ -349,17 +403,21 @@
       </button>
       <button class="apple-button create-issue-btn" on:click={openCreateModal}>
         <Plus size={15} />
-        <span>+ 新建已知问题</span>
+        <span>新建已知问题</span>
+      </button>
+      <button class="apple-button-secondary apple-button export-btn" on:click={() => exportIssues('csv')} title="导出当前筛选结果为 CSV">
+        <Download size={14} />
+        <span>导出 CSV</span>
       </button>
     </div>
   </div>
 
   <!-- Top Stats Grid -->
   <div class="stats-grid">
-    <StatsCard title="已知结构化问题总数" value={totalCount} trend="+12% 本周" subtitle="全维度已收录问题" variant="blue" icon={AlertCircle} />
-    <StatsCard title="正在分析排查" value={analyzingCount} trend="实时跟踪" subtitle="定位中未确认根因" variant="amber" icon={Clock} />
-    <StatsCard title="已定位根因问题" value={locatedCount} trend="已确认代码Bug" subtitle="包含代码泄漏/死锁" variant="green" icon={CheckCircle2} />
-    <StatsCard title="高严重度风险问题" value={highSeverityCount} trend="需优先修复" subtitle="重点影响现网及压测" variant="red" icon={ShieldAlert} />
+    <StatsCard title="已知结构化问题总数" value={totalCount} trend="全部问题" subtitle="全维度已收录问题" variant="blue" icon={AlertCircle} />
+    <StatsCard title="正在分析排查" value={analyzingCount} trend="定位中" subtitle="定位中未确认根因" variant="amber" icon={Clock} />
+    <StatsCard title="已定位根因问题" value={locatedCount} trend="已定位" subtitle="包含代码泄漏/死锁" variant="green" icon={CheckCircle2} />
+    <StatsCard title="高严重度风险问题" value={highSeverityCount} trend="高优修复" subtitle="重点影响现网及压测" variant="red" icon={ShieldAlert} />
   </div>
 
   <!-- Filter Bar -->
@@ -381,9 +439,13 @@
   <!-- Issue Table -->
   <IssueTable
     {issues}
+    totalCount={totalIssues}
+    {currentPage}
+    {pageSize}
+    {isLoading}
     onSelectIssue={(issue) => selectedIssueForDetails = issue}
     onDeleteIssue={promptDeleteIssue}
-    onQuickUpdateStatus={updateVersionFixStatus}
+    onPageChange={handlePageChange}
   />
 </div>
 
@@ -779,7 +841,7 @@
     height: 100vh;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px);
-    z-index: 200;
+    z-index: 1200;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -788,10 +850,18 @@
   .modal-card {
     width: 100%;
     max-width: 640px;
+    max-height: 90vh;
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 18px;
+    overflow: hidden;
+  }
+
+  .modal-body {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
   }
 
   .modal-header, .drawer-header {

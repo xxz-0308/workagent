@@ -3,28 +3,29 @@
   import AppleSelect from '../shared/AppleSelect.svelte';
 
   export let issues: any[] = [];
+  export let totalCount: number = 0;
+  export let currentPage: number = 1;
+  export let pageSize: number = 10;
+  export let isLoading: boolean = false;
   export let onSelectIssue: (issue: any) => void;
   export let onDeleteIssue: (id: number) => void;
+  export let onPageChange: ((page: number, pageSize: number) => void) | undefined = undefined;
 
-  let currentPage: number = 1;
-  let pageSize: number = 10;
-
-  $: totalCount = issues.length;
   $: totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-  $: if (issues) {
-    if (currentPage > totalPages) {
-      currentPage = 1;
-    }
-  }
-
-  $: startIndex = (currentPage - 1) * pageSize;
+  $: startIndex = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   $: endIndex = Math.min(totalCount, currentPage * pageSize);
-  $: paginatedIssues = issues.slice(startIndex, endIndex);
 
   function goToPage(page: number) {
     if (page >= 1 && page <= totalPages) {
-      currentPage = page;
+      if (onPageChange) {
+        onPageChange(page, pageSize);
+      }
+    }
+  }
+
+  function handlePageSizeChange(size: number) {
+    if (onPageChange) {
+      onPageChange(1, size);
     }
   }
 
@@ -71,7 +72,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each paginatedIssues as issue}
+          {#each issues as issue}
             <tr class="issue-row">
               <td class="id-col mono-font">
                 <span class="issue-key-badge">{formatIssueKey(issue)}</span>
@@ -141,7 +142,7 @@
   {#if totalCount > 0}
     <div class="pagination-footer">
       <div class="pagination-info">
-        共 <strong class="highlight-count mono-font">{totalCount}</strong> 条已知问题，显示第 {startIndex + 1} - {endIndex} 条
+        共 <strong class="highlight-count mono-font">{totalCount}</strong> 条已知问题，显示第 {startIndex} - {endIndex} 条
       </div>
 
       <div class="pagination-controls">
@@ -187,6 +188,7 @@
         <div class="size-select-wrap">
           <AppleSelect
             dropUp={true}
+            small={true}
             options={[
               { value: 10, label: '10 条/页' },
               { value: 20, label: '20 条/页' },
@@ -194,7 +196,7 @@
               { value: 100, label: '100 条/页' }
             ]}
             bind:value={pageSize}
-            onChange={() => currentPage = 1}
+            onChange={(val) => handlePageSizeChange(val)}
           />
         </div>
       </div>
@@ -222,6 +224,29 @@
     align-items: center;
     gap: 10px;
     color: var(--text-muted);
+  }
+
+  .loading-state {
+    padding: 60px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+  }
+
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--glass-border);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .empty-icon {
@@ -443,15 +468,17 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 12px 18px;
+    padding: 10px 18px;
     border-top: 1px solid var(--glass-border);
     background: var(--bg-tertiary);
     user-select: none;
+    min-height: 44px;
   }
 
   .pagination-info {
     font-size: 12.5px;
     color: var(--text-secondary);
+    line-height: 1;
   }
 
   .highlight-count {

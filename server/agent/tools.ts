@@ -10,8 +10,7 @@ import {
   getProducts,
   getVersions,
   getServices,
-  getIssueById,
-  getSettings
+  getIssueById
 } from '../db/database.js';
 
 export const agentTools = [
@@ -152,13 +151,14 @@ export const agentTools = [
     type: 'function',
     function: {
       name: 'list_codebase_files',
-      description: '递归扫描并读取指定代码仓目录或指定文件夹的完整文件树目录（用于定位问题时查看代码库文件结构）',
+      description: '递归扫描指定目录的完整文件树结构。用于定位问题时快速了解代码仓库的目录组织。path 参数为必填，用户在对话中提供的代码仓路径',
       parameters: {
         type: 'object',
         properties: {
-          dir_path: { type: 'string', description: '目录绝对路径（可选，未填则使用系统配置的代码仓路径）' },
-          max_depth: { type: 'number', description: '递归扫描的最大层级深度，默认 4 层' }
-        }
+          dir_path: { type: 'string', description: '代码仓或目录的绝对路径（必填）' },
+          max_depth: { type: 'number', description: '递归扫描的最大层级深度，默认 4 层，最大 6 层' }
+        },
+        required: ['dir_path']
       }
     }
   },
@@ -166,11 +166,12 @@ export const agentTools = [
     type: 'function',
     function: {
       name: 'read_code_file',
-      description: '读取代码仓库中某个源码文件的内容（用于排查定位代码 Bug 原因）',
+      description: '读取源码文件内容用于排查 Bug。支持绝对路径，或在 base_path 下解析相对路径。一次读取上限 500 行，大文件建议先用 search_codebase 定位再精确读取',
       parameters: {
         type: 'object',
         properties: {
-          file_path: { type: 'string', description: '代码文件的相对路径或绝对路径' },
+          file_path: { type: 'string', description: '文件的绝对路径，或相对于 base_path 的相对路径' },
+          base_path: { type: 'string', description: '代码仓根目录的绝对路径（当 file_path 为相对路径时使用）' },
           max_lines: { type: 'number', description: '最多读取行数，默认 500 行' }
         },
         required: ['file_path']
@@ -181,14 +182,15 @@ export const agentTools = [
     type: 'function',
     function: {
       name: 'search_codebase',
-      description: '在代码仓库的所有源文件中搜索特定函数、类名、错误码或关键字',
+      description: '在指定代码仓目录中递归搜索关键字（函数名、错误码、日志关键字等）。优先用此工具定位关键代码位置，再用 read_code_file 查看上下文',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: '要搜索的代码关键字或正则，如 ERR_LOCK_TIMEOUT' },
+          base_path: { type: 'string', description: '代码仓根目录的绝对路径（必填）' },
+          query: { type: 'string', description: '搜索关键字，如函数名、错误码 ERR_LOCK_TIMEOUT、日志标记等' },
           file_extension: { type: 'string', description: '文件扩展名过滤，如 .ts, .go, .java, .cpp' }
         },
-        required: ['query']
+        required: ['base_path', 'query']
       }
     }
   }
@@ -196,10 +198,6 @@ export const agentTools = [
 
 function getTargetCodebasePath(customPath?: string): string {
   if (customPath && customPath.trim()) return customPath.trim();
-  const settings = getSettings();
-  if (settings.codebasePath && settings.codebasePath.trim()) {
-    return settings.codebasePath.trim();
-  }
   return process.cwd();
 }
 
@@ -318,7 +316,7 @@ export async function executeTool(name: string, args: any): Promise<any> {
     }
     case 'read_code_file': {
       try {
-        const basePath = getTargetCodebasePath();
+        const basePath = args.base_path || process.cwd();
         let targetPath = args.file_path;
         if (!path.isAbsolute(targetPath)) {
           targetPath = path.join(basePath, targetPath);
@@ -342,7 +340,7 @@ export async function executeTool(name: string, args: any): Promise<any> {
     }
     case 'search_codebase': {
       try {
-        const basePath = getTargetCodebasePath();
+        const basePath = args.base_path || process.cwd();
         if (!fs.existsSync(basePath)) {
           return { error: `代码仓路径不存在: ${basePath}` };
         }

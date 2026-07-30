@@ -4,6 +4,7 @@
   import ChatView from './lib/components/chat/ChatView.svelte';
   import DashboardView from './lib/components/dashboard/DashboardView.svelte';
   import SettingsView from './lib/components/settings/SettingsView.svelte';
+  import ToastContainer from './lib/components/shared/ToastContainer.svelte';
   import { fetchJson } from './lib/api/client';
 
   let activeTab: 'chat' | 'dashboard' | 'settings' = 'chat';
@@ -57,6 +58,8 @@
       <SettingsView {theme} onToggleTheme={handleToggleTheme} />
     </div>
   </main>
+
+  <ToastContainer />
 </div>
 
 <style>

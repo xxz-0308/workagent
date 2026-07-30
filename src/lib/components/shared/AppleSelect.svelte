@@ -6,6 +6,7 @@
   export let value: any = null;
   export let placeholder: string = '请选择...';
   export let dropUp: boolean = false;
+  export let small: boolean = false;
   export let onChange: ((val: any) => void) | undefined = undefined;
 
   let isOpen: boolean = false;
@@ -40,11 +41,11 @@
 
 <div class="apple-select-wrapper" bind:this={wrapperEl}>
   <!-- Trigger Button -->
-  <button type="button" class="select-trigger glass-panel {isOpen ? 'open' : ''}" on:click={toggle}>
+  <button type="button" class="select-trigger glass-panel {isOpen ? 'open' : ''} {small ? 'small' : ''}" on:click={toggle}>
     <span class="trigger-label">
       {selectedOption ? selectedOption.label : placeholder}
     </span>
-    <ChevronDown size={14} class="chevron-icon {isOpen ? 'rotate' : ''}" />
+    <span class="chevron-icon {isOpen ? 'rotate' : ''}"><ChevronDown size={14} /></span>
   </button>
 
   <!-- Floating Glass Dropdown Menu -->
@@ -59,7 +60,7 @@
           >
             <span class="option-label">{option.label}</span>
             {#if value === option.value}
-              <Check size={14} class="check-icon" />
+              <span class="check-icon"><Check size={14} /></span>
             {/if}
           </button>
         {/each}
@@ -91,6 +92,12 @@
     font-family: inherit;
     cursor: pointer;
     transition: all var(--transition-fast);
+  }
+
+  .select-trigger.small {
+    height: 28px;
+    font-size: 12px;
+    padding: 0 8px;
   }
 
   .select-trigger:hover {

@@ -28,3 +28,4 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 workagent.db
+screenshots/

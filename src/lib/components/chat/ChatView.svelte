@@ -1,16 +1,28 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Plus, MessageSquare, Trash2, Bot } from 'lucide-svelte';
+  import { Plus, MessageSquare, Trash2, Bot, RefreshCw, Pencil } from 'lucide-svelte';
   import MessageBubble from './MessageBubble.svelte';
   import ChatInput from './ChatInput.svelte';
   import AppleConfirmModal from '../shared/AppleConfirmModal.svelte';
   import { fetchJson, sendChatMessage } from '../../api/client';
+  import { toastError } from '../../stores/toast';
 
   let conversations: any[] = [];
   let currentConversationId: string = 'conv-default';
   let messages: any[] = [];
   let isSending: boolean = false;
   let chatScrollEl: HTMLDivElement;
+  let loadingMessages: boolean = false;
+  let loadMessagesSeq: number = 0; // race condition guard
+  let activeAbort: (() => void) | null = null;
+  let convSearch: string = '';
+  let editingConvId: string | null = null;
+  let editingTitle: string = '';
+  let generatingTitle: string | null = null;
+
+  $: filteredConversations = convSearch.trim()
+    ? conversations.filter(c => (c.title || '').toLowerCase().includes(convSearch.toLowerCase()))
+    : conversations;
 
   // Confirm delete state
   let showConfirmDelete: boolean = false;
@@ -29,38 +41,136 @@
     try {
       conversations = await fetchJson('/chat/conversations');
       const savedConvId = localStorage.getItem('workagent_active_conv_id');
-      if (savedConvId && conversations.some(c => c.id === savedConvId)) {
-        currentConversationId = savedConvId;
-      } else if (conversations.length > 0) {
-        currentConversationId = conversations[0].id;
+      // Only switch conversation if we're not actively sending/streaming
+      if (!isSending) {
+        if (savedConvId && conversations.some(c => c.id === savedConvId)) {
+          currentConversationId = savedConvId;
+        } else if (conversations.length > 0) {
+          currentConversationId = conversations[0].id;
+        }
       }
-      if (currentConversationId) {
+      // Load messages only if none are currently displayed
+      if (currentConversationId && messages.length === 0) {
         loadMessages(currentConversationId);
       }
     } catch {}
   }
 
+  /** Refresh just the conversation list without switching or reloading messages */
+  async function refreshConversationList() {
+    try {
+      conversations = await fetchJson('/chat/conversations');
+    } catch {}
+  }
+
   async function loadMessages(convId: string) {
+    // Abort any in-progress streaming
+    if (activeAbort) {
+      activeAbort();
+      activeAbort = null;
+    }
+    isSending = false;
     currentConversationId = convId;
     localStorage.setItem('workagent_active_conv_id', convId);
+    const seq = ++loadMessagesSeq;
+    loadingMessages = true;
     try {
-      messages = await fetchJson(`/chat/conversations/${convId}/messages`);
-      scrollToBottom();
+      const msgs = await fetchJson(`/chat/conversations/${convId}/messages`);
+      // Only apply if no newer loadMessages call has started
+      if (seq === loadMessagesSeq) {
+        messages = msgs;
+        scrollToBottom();
+      }
     } catch {
-      messages = [];
+      if (seq === loadMessagesSeq) {
+        messages = [];
+      }
+    } finally {
+      if (seq === loadMessagesSeq) {
+        loadingMessages = false;
+      }
     }
   }
 
-  function startNewConversation() {
+  async function startNewConversation() {
     const newId = `conv-${Date.now()}`;
     currentConversationId = newId;
+    localStorage.setItem('workagent_active_conv_id', newId);
+    const welcomeContent = '你好！我是 WorkAgent。你可以向我描述具体的在研/现网问题，提供错误日志或服务信息，我能帮你做定位方向排查、记录问题、固化版本划分规则，并在版本出补丁时为你整理完整的待合入清单。';
     messages = [
       {
         role: 'assistant',
-        content: '你好！我是 WorkAgent。你可以向我描述具体的在研/现网问题，提供错误日志或服务信息，我能帮你做定位方向排查、记录问题、固化版本划分规则，并在版本出补丁时为你整理完整的待合入清单。'
+        content: welcomeContent
       }
     ];
     conversations = [{ id: newId, title: '新定位探讨', updated_at: new Date().toISOString() }, ...conversations];
+
+    // Persist to DB
+    try {
+      await fetchJson('/chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: newId, initialMessage: welcomeContent })
+      });
+    } catch {}
+  }
+
+  function startEditTitle(convId: string, currentTitle: string) {
+    editingConvId = convId;
+    editingTitle = currentTitle;
+  }
+
+  async function saveEditTitle(convId: string) {
+    const title = editingTitle.trim();
+    if (!title || title === (conversations.find(c => c.id === convId)?.title || '')) {
+      editingConvId = null;
+      return;
+    }
+    try {
+      await fetchJson(`/chat/conversations/${convId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      });
+      // Update local state
+      const conv = conversations.find(c => c.id === convId);
+      if (conv) conv.title = title;
+      conversations = [...conversations];
+    } catch (err: any) {
+      toastError(`重命名失败: ${err.message}`);
+    } finally {
+      editingConvId = null;
+    }
+  }
+
+  async function generateTitle(convId: string) {
+    generatingTitle = convId;
+    try {
+      const result = await fetchJson(`/chat/conversations/${convId}/generate-title`, { method: 'POST' });
+      if (result.title) {
+        const conv = conversations.find(c => c.id === convId);
+        if (conv) conv.title = result.title;
+        conversations = [...conversations];
+      }
+    } catch (err: any) {
+      toastError(`生成标题失败: ${err.message}`);
+    } finally {
+      generatingTitle = null;
+    }
+  }
+
+  // Auto-generate title once, only after the first user message in a conversation
+  async function maybeAutoGenerateTitle(convId: string) {
+    const conv = conversations.find(c => c.id === convId);
+    if (!conv) return;
+    // Only trigger on the first exchange: exactly 1 user message in the current view
+    const userMsgCount = messages.filter(m => m.role === 'user').length;
+    if (userMsgCount !== 1) return;
+    // Trigger if title looks auto-generated
+    const isAutoTitle = conv.title === '新定位探讨' || conv.title === '新对话' || conv.title.length > 20;
+    if (isAutoTitle) {
+      generateTitle(convId);
+    }
   }
 
   function promptDeleteConversation(id: string, title: string) {
@@ -77,7 +187,7 @@
       targetDeleteConvId = null;
       await loadConversations();
     } catch (err: any) {
-      alert(`删除对话失败: ${err.message}`);
+      toastError(`删除对话失败: ${err.message}`);
     }
   }
 
@@ -97,7 +207,7 @@
     isSending = true;
 
     try {
-      await sendChatMessage(
+      const { promise, abort } = sendChatMessage(
         currentConversationId,
         text,
         (chunk) => {
@@ -113,13 +223,17 @@
           messages = [...messages];
         }
       );
+      activeAbort = abort;
+      await promise;
     } catch (err: any) {
       messages[assistantIndex].content += `\n\n❌ **请求遇到错误**: ${err.message || '请检查设置中 API Key 与 BaseURL 是否正确'}`;
     } finally {
       messages[assistantIndex].isStreaming = false;
       messages = [...messages];
       isSending = false;
-      loadConversations();
+      activeAbort = null;
+      refreshConversationList();
+      maybeAutoGenerateTitle(currentConversationId);
     }
   }
 
@@ -144,20 +258,63 @@
     </div>
 
     <div class="conversations-list">
-      {#if conversations.length === 0}
-        <div class="empty-hint">暂无历史对话</div>
+      <input
+        type="text"
+        class="apple-input conv-search-input"
+        placeholder="搜索对话..."
+        bind:value={convSearch}
+      />
+      {#if filteredConversations.length === 0}
+        <div class="empty-hint">{conversations.length === 0 ? '暂无历史对话' : '无匹配结果'}</div>
       {:else}
-        {#each conversations as c}
+        {#each filteredConversations as c}
           <div class="conv-item-wrap {currentConversationId === c.id ? 'active' : ''}">
             <button
               class="conv-item"
               on:click={() => loadMessages(c.id)}
             >
-              <MessageSquare size={15} class="conv-icon" />
-              <span class="conv-title">{c.title || '新定位对话'}</span>
+              <span class="conv-icon"><MessageSquare size={15} /></span>
+              {#if editingConvId === c.id}
+                <input
+                  type="text"
+                  class="apple-input conv-title-edit"
+                  bind:value={editingTitle}
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter') saveEditTitle(c.id);
+                    if (e.key === 'Escape') editingConvId = null;
+                  }}
+                  on:blur={() => saveEditTitle(c.id)}
+                />
+              {:else}
+                <span
+                  class="conv-title"
+                  title="双击编辑标题"
+                  on:dblclick={() => startEditTitle(c.id, c.title || '新定位对话')}
+                >
+                  {c.title || '新定位对话'}
+                </span>
+              {/if}
+            </button>
+            {#if generatingTitle === c.id}
+              <span class="conv-action-btn spinning" title="生成中..."><RefreshCw size={12} /></span>
+            {:else}
+              <button
+                class="conv-action-btn"
+                on:click|stopPropagation={() => generateTitle(c.id)}
+                title="AI 重新命名"
+              >
+                <RefreshCw size={12} />
+              </button>
+            {/if}
+            <button
+              class="conv-action-btn"
+              on:click|stopPropagation={() => startEditTitle(c.id, c.title || '新定位对话')}
+              title="手动重命名"
+            >
+              <Pencil size={12} />
             </button>
             <button
-              class="del-conv-btn"
+              class="conv-action-btn del-btn"
               on:click|stopPropagation={() => promptDeleteConversation(c.id, c.title)}
               title="删除此对话"
             >
@@ -251,7 +408,14 @@
     gap: 6px;
     overflow-y: auto;
     flex: 1;
+  }
 
+  .conv-search-input {
+    padding: 7px 10px;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-bottom: 6px;
+    border-radius: var(--radius-md);
   }
 
   .empty-hint {
@@ -307,24 +471,50 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: default;
   }
 
-  .del-conv-btn {
-    padding: 6px 8px;
+  .conv-title-edit {
+    padding: 2px 6px;
+    font-size: 12px;
+    height: 24px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .conv-action-btn {
+    padding: 4px 6px;
     background: transparent;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
     opacity: 0;
     transition: opacity var(--transition-fast), color var(--transition-fast);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
   }
 
-  .conv-item-wrap:hover .del-conv-btn {
+  .conv-item-wrap:hover .conv-action-btn {
     opacity: 1;
   }
 
-  .del-conv-btn:hover {
+  .conv-action-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .conv-action-btn.del-btn:hover {
     color: var(--status-high);
+  }
+
+  .conv-action-btn.spinning {
+    opacity: 1;
+    animation: spin 1s linear infinite;
+    color: var(--accent-blue);
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .chat-main {
