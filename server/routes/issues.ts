@@ -13,13 +13,14 @@ export const issuesRouter = Router();
 // Query issues
 issuesRouter.get('/', (req, res) => {
   try {
-    const { productId, versionId, serviceId, status, fixStatus, search } = req.query;
+    const { productId, versionId, serviceId, status, fixStatus, tag, search } = req.query;
     const list = getIssues({
       productId: productId ? Number(productId) : undefined,
       versionId: versionId ? Number(versionId) : undefined,
       serviceId: serviceId ? Number(serviceId) : undefined,
       status: status as string,
       fixStatus: fixStatus as string,
+      tag: tag as string,
       search: search as string
     });
     res.json(list);

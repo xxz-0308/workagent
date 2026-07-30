@@ -288,6 +288,7 @@ export function getIssues(params?: {
   serviceId?: number;
   status?: string;
   fixStatus?: string;
+  tag?: string;
   search?: string;
 }): Issue[] {
   let query = `
@@ -320,17 +321,21 @@ export function getIssues(params?: {
     query += ` AND iv.fix_status = ?`;
     args.push(params.fixStatus);
   }
+  if (params?.tag) {
+    query += ` AND i.tags LIKE ?`;
+    args.push(`%${params.tag}%`);
+  }
   if (params?.search) {
-    query += ` AND (i.title LIKE ? OR i.description LIKE ? OR i.root_cause LIKE ? OR s.name LIKE ?)`;
+    query += ` AND (i.title LIKE ? OR i.description LIKE ? OR i.root_cause LIKE ? OR s.name LIKE ? OR i.tags LIKE ?)`;
     const searchPattern = `%${params.search}%`;
-    args.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    args.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
   }
 
   query += ` ORDER BY i.updated_at DESC`;
 
   const issues = db.prepare(query).all(...args) as any[];
 
-  // Attach affected versions and product names for each issue
+  // Attach affected versions, product_ids and product names for each issue
   const ivStmt = db.prepare(`
     SELECT iv.*, v.version_name, p.name as product_name, p.code as product_code
     FROM issue_versions iv
@@ -339,12 +344,17 @@ export function getIssues(params?: {
     WHERE iv.issue_id = ?
   `);
 
+  const psStmt = db.prepare(`
+    SELECT product_id FROM product_services WHERE service_id = ?
+  `);
+
   return issues.map(iss => {
     const affected = ivStmt.all(iss.id) as any[];
+    const boundProds = psStmt.all(iss.service_id) as { product_id: number }[];
+    const product_ids = boundProds.map(p => p.product_id);
 
     const prodNamesSet = new Set<string>();
 
-    // 1. If issue has specific affected versions attached, use their product names
     if (affected.length > 0) {
       affected.forEach(a => {
         if (a.product_code) prodNamesSet.add(a.product_code.toUpperCase());
@@ -352,7 +362,6 @@ export function getIssues(params?: {
       });
     }
 
-    // 2. Fallback to service's bound products if no affected versions attached yet
     if (prodNamesSet.size === 0) {
       const svcProds = db.prepare(`
         SELECT p.name, p.code FROM products p
@@ -366,6 +375,7 @@ export function getIssues(params?: {
 
     return {
       ...iss,
+      product_ids,
       product_summary: prodSummary || '通用/跨产品',
       affected_versions: affected
     };
@@ -390,8 +400,14 @@ export function getIssueById(id: number): Issue | undefined {
     WHERE iv.issue_id = ?
   `).all(iss.id) as any[];
 
+  const boundProds = db.prepare(`
+    SELECT product_id FROM product_services WHERE service_id = ?
+  `).all(iss.service_id) as { product_id: number }[];
+  const product_ids = boundProds.map(p => p.product_id);
+
   return {
     ...iss,
+    product_ids,
     affected_versions: affected
   };
 }

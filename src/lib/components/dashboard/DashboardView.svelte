@@ -18,7 +18,14 @@
   let selectedVersionId: number | null = null;
   let selectedServiceId: number | null = null;
   let selectedStatus: string = '';
+  let selectedTag: string = '';
   let searchQuery: string = '';
+
+  $: availableTags = Array.from(
+    new Set(
+      issues.flatMap(i => (i.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean))
+    )
+  ).sort();
 
   // Modal / Drawer state
   let showEditModal: boolean = false;
@@ -48,6 +55,7 @@
       if (selectedVersionId) params.append('versionId', String(selectedVersionId));
       if (selectedServiceId) params.append('serviceId', String(selectedServiceId));
       if (selectedStatus) params.append('status', selectedStatus);
+      if (selectedTag) params.append('tag', selectedTag);
       if (searchQuery) params.append('search', searchQuery);
 
       issues = await fetchJson(`/issues?${params.toString()}`);
@@ -362,6 +370,8 @@
     bind:selectedVersionId
     bind:selectedServiceId
     bind:selectedStatus
+    bind:selectedTag
+    {availableTags}
     bind:searchQuery
     onFilterChange={handleFilterChange}
     onOpenChecklist={openPatchChecklist}

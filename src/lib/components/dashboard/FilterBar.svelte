@@ -11,6 +11,8 @@
   export let selectedVersionId: number | null = null;
   export let selectedServiceId: number | null = null;
   export let selectedStatus: string = '';
+  export let selectedTag: string = '';
+  export let availableTags: string[] = [];
   export let searchQuery: string = '';
 
   export let onFilterChange: () => void;
@@ -62,6 +64,11 @@
     { value: 'closed', label: '已关闭' }
   ];
 
+  $: tagOptions = [
+    { value: '', label: '全部标签' },
+    ...availableTags.map(t => ({ value: t, label: `🏷️ ${t}` }))
+  ];
+
   $: selectedProductObj = products.find(p => p.id === selectedProductId);
   $: selectedVersionObj = versions.find(v => v.id === selectedVersionId);
 </script>
@@ -72,7 +79,7 @@
     <input
       type="text"
       bind:this={searchInputEl}
-      placeholder="搜索已知问题标题、描述、代码根因或服务..."
+      placeholder="搜索已知问题标题、描述、代码根因、标签或服务..."
       bind:value={searchQuery}
       on:input={onFilterChange}
       class="apple-input search-input"
@@ -112,6 +119,18 @@
         <AppleSelect
           options={serviceOptions}
           bind:value={selectedServiceId}
+          onChange={onFilterChange}
+        />
+      </div>
+    </div>
+
+    <!-- Tag Select -->
+    <div class="select-box">
+      <span class="label">标签:</span>
+      <div class="custom-select-wrap">
+        <AppleSelect
+          options={tagOptions}
+          bind:value={selectedTag}
           onChange={onFilterChange}
         />
       </div>

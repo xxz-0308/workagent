@@ -79,7 +79,6 @@
               
               <td class="title-col" on:click={() => onSelectIssue(issue)}>
                 <div class="title-heading-row">
-                  <span class="inline-prod-badge">{issue.product_summary || 'ALL'}</span>
                   <span class="title-text">{issue.title}</span>
                 </div>
                 {#if issue.description}
