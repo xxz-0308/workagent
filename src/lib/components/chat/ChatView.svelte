@@ -3,6 +3,7 @@
   import { Plus, MessageSquare, Trash2, Bot } from 'lucide-svelte';
   import MessageBubble from './MessageBubble.svelte';
   import ChatInput from './ChatInput.svelte';
+  import AppleConfirmModal from '../shared/AppleConfirmModal.svelte';
   import { fetchJson, sendChatMessage } from '../../api/client';
 
   let conversations: any[] = [];
@@ -10,6 +11,11 @@
   let messages: any[] = [];
   let isSending: boolean = false;
   let chatScrollEl: HTMLDivElement;
+
+  // Confirm delete state
+  let showConfirmDelete: boolean = false;
+  let targetDeleteConvId: string | null = null;
+  let targetDeleteConvTitle: string = '';
 
   onMount(() => {
     const savedConvId = localStorage.getItem('workagent_active_conv_id');
@@ -55,6 +61,24 @@
       }
     ];
     conversations = [{ id: newId, title: '新定位探讨', updated_at: new Date().toISOString() }, ...conversations];
+  }
+
+  function promptDeleteConversation(id: string, title: string) {
+    targetDeleteConvId = id;
+    targetDeleteConvTitle = title || '对话';
+    showConfirmDelete = true;
+  }
+
+  async function confirmDeleteConversation() {
+    if (!targetDeleteConvId) return;
+    try {
+      await fetchJson(`/chat/conversations/${targetDeleteConvId}`, { method: 'DELETE' });
+      showConfirmDelete = false;
+      targetDeleteConvId = null;
+      await loadConversations();
+    } catch (err: any) {
+      alert(`删除对话失败: ${err.message}`);
+    }
   }
 
   async function handleSend(text: string) {
@@ -124,13 +148,22 @@
         <div class="empty-hint">暂无历史对话</div>
       {:else}
         {#each conversations as c}
-          <button
-            class="conv-item {currentConversationId === c.id ? 'active' : ''}"
-            on:click={() => loadMessages(c.id)}
-          >
-            <MessageSquare size={16} class="conv-icon" />
-            <span class="conv-title">{c.title || '新定位对话'}</span>
-          </button>
+          <div class="conv-item-wrap {currentConversationId === c.id ? 'active' : ''}">
+            <button
+              class="conv-item"
+              on:click={() => loadMessages(c.id)}
+            >
+              <MessageSquare size={15} class="conv-icon" />
+              <span class="conv-title">{c.title || '新定位对话'}</span>
+            </button>
+            <button
+              class="del-conv-btn"
+              on:click|stopPropagation={() => promptDeleteConversation(c.id, c.title)}
+              title="删除此对话"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         {/each}
       {/if}
     </div>
@@ -163,14 +196,24 @@
   </main>
 </div>
 
+<!-- Custom Delete Confirmation Modal -->
+<AppleConfirmModal
+  open={showConfirmDelete}
+  title="删除对话"
+  message={`确定要删除对话 『${targetDeleteConvTitle}』 吗？此对话对应的全部历史聊天记录将被永久移除。`}
+  confirmText="确认删除"
+  onConfirm={confirmDeleteConversation}
+  onCancel={() => { showConfirmDelete = false; targetDeleteConvId = null; }}
+/>
+
 <style>
   .chat-container {
     display: grid;
     grid-template-columns: 260px 1fr;
-    gap: 20px;
-    height: calc(100vh - 60px);
-    padding: 20px;
-    max-width: 1600px;
+    gap: 16px;
+    height: calc(100vh - 85px);
+    padding: 0 20px 20px 20px;
+    max-width: 1280px;
     margin: 0 auto;
   }
 
@@ -199,6 +242,7 @@
 
   .new-chat-btn {
     width: 100%;
+    justify-content: center;
   }
 
   .conversations-list {
@@ -207,6 +251,31 @@
     gap: 6px;
     overflow-y: auto;
     flex: 1;
+
+  }
+
+  .empty-hint {
+    padding: 20px 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .conv-item-wrap {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-md);
+    background: transparent;
+    transition: background var(--transition-fast);
+  }
+
+  .conv-item-wrap:hover {
+    background: var(--glass-bg-hover);
+  }
+
+  .conv-item-wrap.active {
+    background: rgba(124, 110, 248, 0.15);
+    border: 1px solid rgba(124, 110, 248, 0.3);
   }
 
   .conv-item {
@@ -221,19 +290,17 @@
     font-size: 13px;
     cursor: pointer;
     text-align: left;
-    transition: all var(--transition-fast);
+    flex: 1;
+    overflow: hidden;
   }
 
-  .conv-item:hover {
-    background: var(--glass-bg-hover);
-    color: var(--text-primary);
-  }
-
-  .conv-item.active {
-    background: rgba(0, 122, 255, 0.15);
+  .conv-item-wrap.active .conv-item {
     color: var(--accent-blue);
-    border: 1px solid rgba(0, 122, 255, 0.3);
-    font-weight: 500;
+    font-weight: 600;
+  }
+
+  .conv-icon {
+    flex-shrink: 0;
   }
 
   .conv-title {
@@ -242,49 +309,76 @@
     text-overflow: ellipsis;
   }
 
+  .del-conv-btn {
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), color var(--transition-fast);
+  }
+
+  .conv-item-wrap:hover .del-conv-btn {
+    opacity: 1;
+  }
+
+  .del-conv-btn:hover {
+    color: var(--status-high);
+  }
+
   .chat-main {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    gap: 16px;
   }
 
   .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding-right: 8px;
+    padding: 10px 4px 20px 4px;
     display: flex;
     flex-direction: column;
   }
 
   .welcome-banner {
     margin: auto;
-    padding: 40px;
+    max-width: 500px;
+    padding: 32px 24px;
     text-align: center;
-    max-width: 540px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
 
   .bot-badge {
     width: 60px;
     height: 60px;
-    border-radius: 20px;
+    border-radius: 18px;
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.35);
+    box-shadow: var(--shadow-md);
   }
 
-  .empty-hint {
-    font-size: 13px;
-    color: var(--text-muted);
-    text-align: center;
-    padding: 20px 0;
+  .welcome-banner h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .welcome-banner p {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .chat-input-area {
+    padding-top: 10px;
+    flex-shrink: 0;
   }
 </style>

@@ -40,6 +40,7 @@ export interface Issue {
   severity: SeverityLevel;
   status: IssueStatus;
   impact?: string;
+  tags?: string;
   created_at: string;
   updated_at: string;
   // Associated versions with their fix status
@@ -91,4 +92,5 @@ export interface AppSettings {
   model: string;
   theme: 'dark' | 'light';
   language: 'zh' | 'en';
+  codebasePath?: string;
 }

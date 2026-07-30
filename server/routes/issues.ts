@@ -49,6 +49,17 @@ issuesRouter.post('/', (req, res) => {
   }
 });
 
+// Update Issue by ID (PUT)
+issuesRouter.put('/:id', (req, res) => {
+  try {
+    const issueId = Number(req.params.id);
+    const issue = createOrUpdateIssue({ ...req.body, id: issueId });
+    res.json(issue);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Update issue version fix status
 issuesRouter.post('/:id/version-status', (req, res) => {
   try {

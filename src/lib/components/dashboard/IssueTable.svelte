@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AlertTriangle, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import AppleSelect from '../shared/AppleSelect.svelte';
 
   export let issues: any[] = [];
   export let onSelectIssue: (issue: any) => void;
@@ -25,12 +26,6 @@
     if (page >= 1 && page <= totalPages) {
       currentPage = page;
     }
-  }
-
-  function handlePageSizeChange(e: Event) {
-    const val = Number((e.target as HTMLSelectElement).value);
-    pageSize = val;
-    currentPage = 1;
   }
 
   function getSeverityBadge(sev: string) {
@@ -85,6 +80,13 @@
                 <div class="title-heading-row">
                   <span class="inline-prod-badge">{issue.product_summary || 'ALL'}</span>
                   <span class="title-text">{issue.title}</span>
+                  {#if issue.tags}
+                    <div class="tag-pills-row">
+                      {#each issue.tags.split(',').filter((t: string) => t.trim()) as tag}
+                        <span class="tag-pill">🏷️ {tag.trim()}</span>
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
                 {#if issue.description}
                   <div class="desc-snippet">{issue.description}</div>
@@ -177,12 +179,18 @@
 
       <div class="page-size-selector">
         <span class="size-label">每页显示:</span>
-        <select class="apple-input size-select" value={pageSize} on:change={handlePageSizeChange}>
-          <option value={10}>10 条/页</option>
-          <option value={20}>20 条/页</option>
-          <option value={50}>50 条/页</option>
-          <option value={100}>100 条/页</option>
-        </select>
+        <div class="size-select-wrap">
+          <AppleSelect
+            options={[
+              { value: 10, label: '10 条/页' },
+              { value: 20, label: '20 条/页' },
+              { value: 50, label: '50 条/页' },
+              { value: 100, label: '100 条/页' }
+            ]}
+            bind:value={pageSize}
+            onChange={() => currentPage = 1}
+          />
+        </div>
       </div>
     </div>
   {/if}
@@ -216,23 +224,20 @@
   .issue-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 13.5px;
   }
 
   th {
-    padding: 12px 14px;
+    padding: 14px 16px;
     text-align: left;
     color: var(--text-secondary);
     font-weight: 600;
-    font-size: 11.5px;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
     border-bottom: 1px solid var(--glass-border);
     white-space: nowrap;
   }
 
   td {
-    padding: 12px 14px;
+    padding: 14px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
   }
@@ -251,18 +256,23 @@
 
   .issue-key-badge {
     color: var(--accent-blue);
-    background: rgba(10, 132, 255, 0.12);
-    border: 1px solid rgba(10, 132, 255, 0.25);
+    background: rgba(124, 110, 248, 0.12);
+    border: 1px solid rgba(124, 110, 248, 0.25);
     padding: 2px 7px;
     border-radius: var(--radius-sm);
     font-size: 11.5px;
     font-weight: 600;
   }
 
+  .title-col {
+    cursor: pointer;
+  }
+
   .title-heading-row {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
   .inline-prod-badge {
@@ -279,63 +289,79 @@
 
   .title-text {
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-primary);
     line-height: 1.4;
   }
 
+  .tag-pills-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .tag-pill {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.28);
+    color: var(--text-primary);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+  }
+
   .desc-snippet {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 2px;
+    margin-top: 3px;
   }
 
   .product-tag {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
   }
 
   .service-tag {
-    background: rgba(191, 90, 242, 0.12);
-    border: 1px solid rgba(191, 90, 242, 0.25);
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.25);
     color: var(--accent-purple);
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
-    font-size: 11.5px;
+    font-size: 12px;
     white-space: nowrap;
   }
 
   .severity-badge {
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
     white-space: nowrap;
     border: 1px solid transparent;
   }
 
   .severity-badge.high {
-    background: rgba(255, 69, 58, 0.12);
+    background: rgba(255, 69, 58, 0.15);
     color: var(--status-high);
     border-color: rgba(255, 69, 58, 0.25);
   }
 
   .severity-badge.medium {
-    background: rgba(255, 159, 10, 0.12);
+    background: rgba(255, 159, 10, 0.15);
     color: var(--status-medium);
     border-color: rgba(255, 159, 10, 0.25);
   }
 
   .severity-badge.low {
-    background: rgba(48, 209, 88, 0.12);
+    background: rgba(48, 209, 88, 0.15);
     color: var(--status-low);
     border-color: rgba(48, 209, 88, 0.25);
   }
@@ -367,7 +393,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
+    padding: 5px 11px;
     border-radius: var(--radius-sm);
     border: 1px solid transparent;
     font-size: 12px;
@@ -376,9 +402,9 @@
   }
 
   .detail-btn {
-    background: rgba(10, 132, 255, 0.12);
+    background: rgba(124, 110, 248, 0.15);
     color: var(--accent-blue);
-    border-color: rgba(10, 132, 255, 0.25);
+    border-color: rgba(124, 110, 248, 0.3);
   }
 
   .detail-btn:hover {
@@ -392,21 +418,20 @@
   }
 
   .delete-btn:hover {
-    background: rgba(255, 69, 58, 0.12);
+    background: rgba(255, 69, 58, 0.15);
     color: var(--status-high);
-    border-color: rgba(255, 69, 58, 0.25);
   }
 
-  /* Pagination Styling */
+  /* Pagination Bar Styling */
   .pagination-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 16px;
+    padding: 12px 18px;
     border-top: 1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.15);
     user-select: none;
   }
 
@@ -429,12 +454,12 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
+    padding: 5px 12px;
     border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
     border: 1px solid var(--glass-border);
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: 12.5px;
     cursor: pointer;
     transition: all var(--transition-fast);
   }
@@ -463,15 +488,9 @@
     background: transparent;
     border: 1px solid transparent;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .page-num:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
   }
 
   .page-num.active {
@@ -483,21 +502,18 @@
 
   .page-ellipsis {
     color: var(--text-muted);
-    font-size: 12px;
-    padding: 0 2px;
+    font-size: 12.5px;
   }
 
   .page-size-selector {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
   }
 
-  .size-select {
-    width: 95px;
-    padding: 3px 6px;
-    font-size: 12px;
+  .size-select-wrap {
+    width: 105px;
   }
 </style>

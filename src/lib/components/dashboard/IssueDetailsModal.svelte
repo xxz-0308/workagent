@@ -218,6 +218,29 @@
           </div>
         </div>
 
+        <!-- Form Controls Row 2: Impact & Tags -->
+        <div class="form-row" style="margin-bottom: 14px;">
+          <div class="form-group flex-1">
+            <label><Tag size={13} /> 问题影响范围</label>
+            <input
+              type="text"
+              class="apple-input"
+              bind:value={activeData.impact}
+              placeholder="如: 现网压测场景下服务响应延迟..."
+            />
+          </div>
+
+          <div class="form-group flex-1">
+            <label><Tag size={13} /> 标签 (英文逗号分隔)</label>
+            <input
+              type="text"
+              class="apple-input"
+              bind:value={activeData.tags}
+              placeholder="如: 数据库, 内存泄漏, 压测"
+            />
+          </div>
+        </div>
+
         <!-- Section 1: Root Cause & Code Analysis -->
         <div class="info-section cause-section glass-panel">
           <div class="section-title">

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import {
   createOrUpdateIssue,
   updateIssueVersionStatus,
@@ -9,7 +10,8 @@ import {
   getProducts,
   getVersions,
   getServices,
-  getIssueById
+  getIssueById,
+  getSettings
 } from '../db/database.js';
 
 export const agentTools = [
@@ -17,7 +19,7 @@ export const agentTools = [
     type: 'function',
     function: {
       name: 'record_issue',
-      description: '记录一个在研或现网问题，包括服务名称、标题、描述、严重程度、影响范围、以及涉及的软件版本与修复状态',
+      description: '记录一个在研或现网问题，包括服务名称、标题、描述、标签、严重程度、影响范围、以及涉及的软件版本与修复状态',
       parameters: {
         type: 'object',
         properties: {
@@ -28,6 +30,7 @@ export const agentTools = [
           severity: { type: 'string', enum: ['high', 'medium', 'low'], description: '严重程度' },
           status: { type: 'string', enum: ['analyzing', 'located', 'closed'], description: '定位状态：analyzing(分析中), located(已定位), closed(已关闭)' },
           impact: { type: 'string', description: '问题影响范围' },
+          tags: { type: 'string', description: '标签，多个标签用英文逗号分隔（如: 数据库,死锁,性能）' },
           version_fixes: {
             type: 'array',
             description: '涉及的产品版本列表及其修复状态',
@@ -51,7 +54,7 @@ export const agentTools = [
     type: 'function',
     function: {
       name: 'update_issue',
-      description: '更新已存在问题的状态、根因、严重度或版本修复情况',
+      description: '更新已存在问题的状态、根因、严重度、标签或版本修复情况',
       parameters: {
         type: 'object',
         properties: {
@@ -60,7 +63,8 @@ export const agentTools = [
           root_cause: { type: 'string', description: '定位结论或代码 bug 原因' },
           severity: { type: 'string', enum: ['high', 'medium', 'low'] },
           status: { type: 'string', enum: ['analyzing', 'located', 'closed'] },
-          impact: { type: 'string' }
+          impact: { type: 'string' },
+          tags: { type: 'string', description: '标签（英文逗号分隔）' }
         },
         required: ['issue_id']
       }
@@ -103,7 +107,7 @@ export const agentTools = [
     type: 'function',
     function: {
       name: 'query_issues',
-      description: '按产品、版本、服务、状态或关键字检索已有问题列表',
+      description: '按产品、版本、服务、状态、标签或关键字检索已有问题列表',
       parameters: {
         type: 'object',
         properties: {
@@ -112,7 +116,7 @@ export const agentTools = [
           service_name: { type: 'string', description: '服务名称，如 GaussDB' },
           status: { type: 'string', enum: ['analyzing', 'located', 'closed'] },
           fix_status: { type: 'string', enum: ['unfixed', 'fixed', 'patched'] },
-          search: { type: 'string', description: '搜索关键字' }
+          search: { type: 'string', description: '搜索关键字（支持搜索标题、根因、标签）' }
         }
       }
     }
@@ -147,19 +151,76 @@ export const agentTools = [
   {
     type: 'function',
     function: {
-      name: 'read_local_log',
-      description: '读取用户指定的本地日志或代码文件内容（用于协助分析问题）',
+      name: 'list_codebase_files',
+      description: '递归扫描并读取指定代码仓目录或指定文件夹的完整文件树目录（用于定位问题时查看代码库文件结构）',
       parameters: {
         type: 'object',
         properties: {
-          file_path: { type: 'string', description: '本地日志或代码文件的绝对路径' },
-          max_lines: { type: 'number', description: '最多读取的行数，默认 300 行' }
+          dir_path: { type: 'string', description: '目录绝对路径（可选，未填则使用系统配置的代码仓路径）' },
+          max_depth: { type: 'number', description: '递归扫描的最大层级深度，默认 4 层' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_code_file',
+      description: '读取代码仓库中某个源码文件的内容（用于排查定位代码 Bug 原因）',
+      parameters: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: '代码文件的相对路径或绝对路径' },
+          max_lines: { type: 'number', description: '最多读取行数，默认 500 行' }
         },
         required: ['file_path']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_codebase',
+      description: '在代码仓库的所有源文件中搜索特定函数、类名、错误码或关键字',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '要搜索的代码关键字或正则，如 ERR_LOCK_TIMEOUT' },
+          file_extension: { type: 'string', description: '文件扩展名过滤，如 .ts, .go, .java, .cpp' }
+        },
+        required: ['query']
+      }
+    }
   }
 ];
+
+function getTargetCodebasePath(customPath?: string): string {
+  if (customPath && customPath.trim()) return customPath.trim();
+  const settings = getSettings();
+  if (settings.codebasePath && settings.codebasePath.trim()) {
+    return settings.codebasePath.trim();
+  }
+  return process.cwd();
+}
+
+function walkDir(dir: string, maxDepth: number, currentDepth = 0): string[] {
+  if (currentDepth > maxDepth) return [];
+  let results: string[] = [];
+  try {
+    const list = fs.readdirSync(dir, { withFileTypes: true });
+    for (const item of list) {
+      if (item.name.startsWith('.') || item.name === 'node_modules' || item.name === 'dist' || item.name === 'data') continue;
+      const fullPath = path.join(dir, item.name);
+      if (item.isDirectory()) {
+        results.push(`${fullPath}/`);
+        results = results.concat(walkDir(fullPath, maxDepth, currentDepth + 1));
+      } else {
+        results.push(fullPath);
+      }
+    }
+  } catch {}
+  return results;
+}
 
 export async function executeTool(name: string, args: any): Promise<any> {
   switch (name) {
@@ -172,6 +233,7 @@ export async function executeTool(name: string, args: any): Promise<any> {
         severity: args.severity,
         status: args.status,
         impact: args.impact,
+        tags: args.tags,
         version_fixes: args.version_fixes
       });
       return { success: true, message: `已成功记录问题 #${issue.id}: ${issue.title}`, issue };
@@ -187,7 +249,8 @@ export async function executeTool(name: string, args: any): Promise<any> {
         root_cause: args.root_cause,
         severity: args.severity,
         status: args.status,
-        impact: args.impact
+        impact: args.impact,
+        tags: args.tags !== undefined ? args.tags : issue.tags
       });
       return { success: true, message: `已成功更新问题 #${args.issue_id}`, issue: updated };
     }
@@ -239,22 +302,80 @@ export async function executeTool(name: string, args: any): Promise<any> {
       const rules = getRules();
       return { total: rules.length, rules };
     }
-    case 'read_local_log': {
+    case 'list_codebase_files': {
+      const basePath = getTargetCodebasePath(args.dir_path);
+      if (!fs.existsSync(basePath)) {
+        return { error: `代码仓路径不存在: ${basePath}` };
+      }
+      const maxDepth = args.max_depth || 4;
+      const fileList = walkDir(basePath, maxDepth);
+      const relList = fileList.map(f => path.relative(basePath, f));
+      return {
+        base_path: basePath,
+        total_files: relList.length,
+        files: relList.slice(0, 300)
+      };
+    }
+    case 'read_code_file': {
       try {
-        if (!fs.existsSync(args.file_path)) {
-          return { error: `文件未找到: ${args.file_path}` };
+        const basePath = getTargetCodebasePath();
+        let targetPath = args.file_path;
+        if (!path.isAbsolute(targetPath)) {
+          targetPath = path.join(basePath, targetPath);
         }
-        const content = fs.readFileSync(args.file_path, 'utf-8');
+        if (!fs.existsSync(targetPath)) {
+          return { error: `文件未找到: ${targetPath}` };
+        }
+        const content = fs.readFileSync(targetPath, 'utf-8');
         const lines = content.split('\n');
-        const max = args.max_lines || 300;
-        const excerpt = lines.slice(-max).join('\n');
+        const max = args.max_lines || 500;
+        const excerpt = lines.slice(0, max).join('\n');
         return {
+          file_path: targetPath,
           total_lines: lines.length,
           read_lines: Math.min(lines.length, max),
           content: excerpt
         };
       } catch (err: any) {
         return { error: `读取文件失败: ${err.message}` };
+      }
+    }
+    case 'search_codebase': {
+      try {
+        const basePath = getTargetCodebasePath();
+        if (!fs.existsSync(basePath)) {
+          return { error: `代码仓路径不存在: ${basePath}` };
+        }
+        const files = walkDir(basePath, 5).filter(f => !f.endsWith('/'));
+        const matches: { file: string; line: number; content: string }[] = [];
+        const extFilter = args.file_extension ? args.file_extension.toLowerCase() : null;
+        const q = args.query.toLowerCase();
+
+        for (const file of files) {
+          if (extFilter && !file.toLowerCase().endsWith(extFilter)) continue;
+          try {
+            const content = fs.readFileSync(file, 'utf-8');
+            const lines = content.split('\n');
+            lines.forEach((line, idx) => {
+              if (line.toLowerCase().includes(q) && matches.length < 50) {
+                matches.push({
+                  file: path.relative(basePath, file),
+                  line: idx + 1,
+                  content: line.trim()
+                });
+              }
+            });
+          } catch {}
+          if (matches.length >= 50) break;
+        }
+
+        return {
+          query: args.query,
+          match_count: matches.length,
+          matches
+        };
+      } catch (err: any) {
+        return { error: `搜索代码失败: ${err.message}` };
       }
     }
     default:

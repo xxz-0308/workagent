@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getConversations,
+  deleteConversation,
   getMessages,
   saveMessage
 } from '../db/database.js';
@@ -13,6 +14,16 @@ chatRouter.get('/conversations', (req, res) => {
   try {
     const list = getConversations();
     res.json(list);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete conversation
+chatRouter.delete('/conversations/:id', (req, res) => {
+  try {
+    deleteConversation(req.params.id);
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

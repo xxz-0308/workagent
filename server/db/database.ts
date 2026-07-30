@@ -68,6 +68,7 @@ export function initDatabase() {
       severity TEXT DEFAULT 'medium',
       status TEXT DEFAULT 'analyzing',
       impact TEXT,
+      tags TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (service_id) REFERENCES services(id)
@@ -115,6 +116,8 @@ export function initDatabase() {
       value TEXT
     );
   `);
+
+  try { db.exec('ALTER TABLE issues ADD COLUMN tags TEXT;'); } catch {}
 
   seedDefaultData();
 }
@@ -404,6 +407,7 @@ export function createOrUpdateIssue(data: {
   severity?: 'high' | 'medium' | 'low';
   status?: 'analyzing' | 'located' | 'closed';
   impact?: string;
+  tags?: string;
   version_fixes?: { product_code?: string; version_name: string; fix_status: 'unfixed' | 'fixed' | 'patched'; patch_version?: string }[];
 }): Issue {
   // Ensure service exists
@@ -431,13 +435,13 @@ export function createOrUpdateIssue(data: {
       UPDATE issues
       SET title = ?, description = COALESCE(?, description), root_cause = COALESCE(?, root_cause),
           service_id = ?, severity = COALESCE(?, severity), status = COALESCE(?, status),
-          impact = COALESCE(?, impact), updated_at = CURRENT_TIMESTAMP
+          impact = COALESCE(?, impact), tags = COALESCE(?, tags), updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(data.title, data.description, data.root_cause, svc.id, data.severity, data.status, data.impact, issueId);
+    `).run(data.title, data.description, data.root_cause, svc.id, data.severity, data.status, data.impact, data.tags || '', issueId);
   } else {
     db.prepare(`
-      INSERT INTO issues (title, description, root_cause, service_id, severity, status, impact)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (title, description, root_cause, service_id, severity, status, impact, tags)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.title,
       data.description || '',
@@ -445,7 +449,8 @@ export function createOrUpdateIssue(data: {
       svc.id,
       data.severity || 'medium',
       data.status || 'analyzing',
-      data.impact || ''
+      data.impact || '',
+      data.tags || ''
     );
     issueId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
   }
@@ -579,6 +584,11 @@ export function getRules(): Rule[] {
 
 export function getConversations(): Conversation[] {
   return db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC').all() as Conversation[];
+}
+
+export function deleteConversation(id: string) {
+  db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(id);
+  db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
 }
 
 export function getMessages(conversationId: string): Message[] {

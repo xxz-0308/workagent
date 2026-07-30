@@ -5,6 +5,7 @@
   import FilterBar from './FilterBar.svelte';
   import IssueTable from './IssueTable.svelte';
   import AppleSelect from '../shared/AppleSelect.svelte';
+  import AppleConfirmModal from '../shared/AppleConfirmModal.svelte';
   import IssueDetailsModal from './IssueDetailsModal.svelte';
   import { fetchJson } from '../../api/client';
 
@@ -252,28 +253,67 @@
     }
   }
 
-  async function handleDeleteProduct(prodId: number, prodName: string) {
-    if (!confirm(`确定删除产品 "${prodName}" 及其关联的版本信息吗？`)) return;
+  async function handleSaveIssueDetails(updatedIssue: any) {
     try {
-      await fetchJson(`/topology/products/${prodId}`, { method: 'DELETE' });
+      await fetchJson(`/issues/${updatedIssue.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedIssue)
+      });
       await loadMetadata();
       await loadIssues();
+      selectedIssueForDetails = null;
     } catch (err: any) {
-      alert(`删除产品失败: ${err.message}`);
+      alert(`保存修改失败: ${err.message}`);
     }
   }
 
-  async function handleDeleteIssue(id: number) {
-    if (!confirm(`确定删除问题 #${id} 吗？`)) return;
-    try {
-      await fetchJson(`/issues/${id}`, { method: 'DELETE' });
-      await loadIssues();
-      if (selectedIssueForDetails && selectedIssueForDetails.id === id) {
-        selectedIssueForDetails = null;
+  // Confirm dialog state for deletions
+  let confirmDialog = {
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  };
+
+  function promptDeleteProduct(prodId: number, prodName: string) {
+    confirmDialog = {
+      open: true,
+      title: '删除产品拓扑',
+      message: `确定要删除产品 『${prodName}』 及其关联的版本信息吗？`,
+      onConfirm: async () => {
+        try {
+          await fetchJson(`/topology/products/${prodId}`, { method: 'DELETE' });
+          await loadMetadata();
+          await loadIssues();
+        } catch (err: any) {
+          alert(`删除产品失败: ${err.message}`);
+        } finally {
+          confirmDialog.open = false;
+        }
       }
-    } catch (err: any) {
-      alert(`删除失败: ${err.message}`);
-    }
+    };
+  }
+
+  function promptDeleteIssue(id: number) {
+    confirmDialog = {
+      open: true,
+      title: '删除已知问题',
+      message: `确定要删除已知问题 #${id} 吗？相关数据与版本修复记录将被移除。`,
+      onConfirm: async () => {
+        try {
+          await fetchJson(`/issues/${id}`, { method: 'DELETE' });
+          await loadIssues();
+          if (selectedIssueForDetails && selectedIssueForDetails.id === id) {
+            selectedIssueForDetails = null;
+          }
+        } catch (err: any) {
+          alert(`删除失败: ${err.message}`);
+        } finally {
+          confirmDialog.open = false;
+        }
+      }
+    };
   }
 
   $: totalCount = issues.length;
@@ -331,7 +371,7 @@
   <IssueTable
     {issues}
     onSelectIssue={(issue) => selectedIssueForDetails = issue}
-    onDeleteIssue={handleDeleteIssue}
+    onDeleteIssue={promptDeleteIssue}
     onQuickUpdateStatus={updateVersionFixStatus}
   />
 </div>
@@ -524,7 +564,7 @@
                     type="button"
                     class="del-prod-btn"
                     title="删除产品"
-                    on:click={() => handleDeleteProduct(p.id, p.name)}
+                    on:click={() => promptDeleteProduct(p.id, p.name)}
                   >
                     <Trash2 size={13} />
                     <span>删除产品</span>
@@ -634,14 +674,23 @@
     issue={selectedIssueForDetails}
     {products}
     {versions}
+    {services}
     onClose={() => selectedIssueForDetails = null}
-    onEdit={(issue) => {
-      selectedIssueForDetails = null;
-      openEditModal(issue);
-    }}
+    onSaveIssue={handleSaveIssueDetails}
+    onDeleteIssue={promptDeleteIssue}
     onUpdateFixStatus={updateVersionFixStatus}
   />
 {/if}
+
+<!-- Apple Confirm Modal -->
+<AppleConfirmModal
+  open={confirmDialog.open}
+  title={confirmDialog.title}
+  message={confirmDialog.message}
+  confirmText="确认删除"
+  onConfirm={confirmDialog.onConfirm}
+  onCancel={() => confirmDialog.open = false}
+/>
 
 <style>
   .dashboard-container {

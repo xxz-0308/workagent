@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun } from 'lucide-svelte';
+  import { Key, Globe, Cpu, Check, BookOpen, Moon, Sun, FolderGit2 } from 'lucide-svelte';
   import { fetchJson } from '../../api/client';
 
   export let theme: 'dark' | 'light' = 'dark';
@@ -9,6 +9,7 @@
   let apiKey: string = '';
   let baseUrl: string = 'https://api.openai.com/v1';
   let model: string = 'gpt-4o';
+  let codebasePath: string = '';
   let isSaved: boolean = false;
 
   let rules: any[] = [];
@@ -24,6 +25,7 @@
       apiKey = data.apiKey || '';
       baseUrl = data.baseUrl || 'https://api.openai.com/v1';
       model = data.model || 'gpt-4o';
+      codebasePath = data.codebasePath || '';
     } catch {}
   }
 
@@ -38,7 +40,7 @@
       await fetchJson('/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, baseUrl, model })
+        body: JSON.stringify({ apiKey, baseUrl, model, codebasePath })
       });
       isSaved = true;
       setTimeout(() => (isSaved = false), 2500);
@@ -89,8 +91,19 @@
           type="text"
           class="apple-input"
           bind:value={model}
-          placeholder="如: gpt-4o, claude-3-5-sonnet, deepseek-r1 等"
+          placeholder="如: gpt-4o, claude-3-5-sonnet, deepseek-chat 等"
         />
+      </div>
+
+      <div class="form-group">
+        <label><FolderGit2 size={14} /> 代码仓绝对路径 (Codebase Directory)</label>
+        <input
+          type="text"
+          class="apple-input"
+          bind:value={codebasePath}
+          placeholder="如: C:/Projects/my-system 或 /home/user/code"
+        />
+        <span class="field-hint">设置代码仓路径后，AI 定位助手可自动扫描该目录树并检索源码文件</span>
       </div>
 
       <div class="btn-wrap">
