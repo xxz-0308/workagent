@@ -71,7 +71,11 @@
       });
     }
 
+    // Only show version groups for products this issue belongs to
+    const activeProdIds = new Set((activeData.product_ids || []).map((id: any) => Number(id)));
+
     products.forEach(p => {
+      if (activeProdIds.size > 0 && !activeProdIds.has(Number(p.id))) return;
       const prodVers = versions.filter(v => v.product_id === p.id);
       if (prodVers.length > 0) {
         const items = prodVers.map(v => {

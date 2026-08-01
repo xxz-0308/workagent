@@ -37,6 +37,52 @@
     return 'var(--text-muted)';
   }
 
+  // --- Resizable columns ---
+  let colWidths: Record<string, number> = {};
+  let resizing: { colKey: string; startX: number; startWidth: number } | null = null;
+
+  // Reactive column styles — Svelte tracks this (colWidths is read directly)
+  $: colStyles = {
+    key: colWidths['key'] ? `${colWidths['key']}px` : '95px',
+    title: colWidths['title'] ? `${colWidths['title']}px` : 'auto',
+    tags: colWidths['tags'] ? `${colWidths['tags']}px` : '150px',
+    product: colWidths['product'] ? `${colWidths['product']}px` : '120px',
+    service: colWidths['service'] ? `${colWidths['service']}px` : '120px',
+    severity: colWidths['severity'] ? `${colWidths['severity']}px` : '100px',
+    status: colWidths['status'] ? `${colWidths['status']}px` : '110px',
+    fix: colWidths['fix'] ? `${colWidths['fix']}px` : '95px',
+    actions: colWidths['actions'] ? `${colWidths['actions']}px` : '110px'
+  };
+
+  function startColResize(e: MouseEvent, colKey: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = (e.target as HTMLElement).closest('th');
+    if (!th) return;
+    resizing = {
+      colKey,
+      startX: e.clientX,
+      startWidth: th.getBoundingClientRect().width
+    };
+    document.body.classList.add('col-resizing');
+    window.addEventListener('mousemove', onColResizeMove);
+    window.addEventListener('mouseup', stopColResize);
+  }
+
+  function onColResizeMove(e: MouseEvent) {
+    if (!resizing) return;
+    const delta = e.clientX - resizing.startX;
+    const newWidth = Math.max(60, Math.round(resizing.startWidth + delta));
+    colWidths = { ...colWidths, [resizing.colKey]: newWidth };
+  }
+
+  function stopColResize() {
+    resizing = null;
+    document.body.classList.remove('col-resizing');
+    window.removeEventListener('mousemove', onColResizeMove);
+    window.removeEventListener('mouseup', stopColResize);
+  }
+
   $: totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   $: startIndex = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   $: endIndex = Math.min(totalCount, currentPage * pageSize);
@@ -102,17 +148,17 @@
       <table class="issue-table">
         <thead>
           <tr>
-            <th style="width: 95px;">ISSUE KEY</th>
-            <th>问题标题 / 现象描述</th>
-            <th style="width: 150px;">标签</th>
-            <th style="width: 120px;">所属产品</th>
-            <th style="width: 120px;">所属服务</th>
-            <th style="width: 100px;">严重度</th>
-            <th style="width: 110px;">定位状态</th>
+            <th style="width: {colStyles.key};">ISSUE KEY <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'key')}></span></th>
+            <th style="width: {colStyles.title};">问题标题 / 现象描述 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'title')}></span></th>
+            <th style="width: {colStyles.tags};">标签 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'tags')}></span></th>
+            <th style="width: {colStyles.product};">所属产品 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'product')}></span></th>
+            <th style="width: {colStyles.service};">所属服务 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'service')}></span></th>
+            <th style="width: {colStyles.severity};">严重度 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'severity')}></span></th>
+            <th style="width: {colStyles.status};">定位状态 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'status')}></span></th>
             {#if selectedVersionName}
-              <th style="width: 95px;">修复状态</th>
+              <th style="width: {colStyles.fix};">修复状态 <span class="resize-handle" on:mousedown={(e) => startColResize(e, 'fix')}></span></th>
             {/if}
-            <th style="width: 110px; text-align: right;">操作</th>
+            <th style="width: {colStyles.actions}; text-align: right;">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -337,6 +383,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 13.5px;
+    table-layout: fixed;
   }
 
   th {
@@ -346,6 +393,31 @@
     font-weight: 600;
     border-bottom: 1px solid var(--glass-border);
     white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .resize-handle:hover {
+    background: var(--accent-glow);
+  }
+
+  :global(body.col-resizing) {
+    cursor: col-resize !important;
+    user-select: none;
+  }
+
+  :global(body.col-resizing *) {
+    cursor: col-resize !important;
   }
 
   td {

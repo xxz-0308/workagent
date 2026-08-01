@@ -166,6 +166,44 @@
     initial_versions_str: '23.0, 23.1, 24.0, 24.1'
   };
 
+  // Add version to existing product
+  let addingVersionProductId: number | null = null;
+  let newVersionName: string = '';
+
+  function getProductVersions(productId: number) {
+    return versions.filter(v => v.product_id === productId);
+  }
+
+  function toggleAddVersion(productId: number) {
+    if (addingVersionProductId === productId) {
+      addingVersionProductId = null;
+    } else {
+      addingVersionProductId = productId;
+      newVersionName = '';
+    }
+  }
+
+  async function addVersionToProduct(productId: number) {
+    const vName = newVersionName.trim();
+    if (!vName) {
+      toastError('请输入版本号');
+      return;
+    }
+    try {
+      await fetchJson('/topology/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, versionName: vName })
+      });
+      addingVersionProductId = null;
+      newVersionName = '';
+      await loadMetadata();
+      toastSuccess(`已添加版本 ${vName}`);
+    } catch (err: any) {
+      toastError(`添加版本失败: ${err.message}`);
+    }
+  }
+
   // Service selection mode: 'existing' or 'custom'
   let isCustomService: boolean = false;
   let customServiceName: string = '';
@@ -660,13 +698,35 @@
         <!-- Existing Products List -->
         {#if products && products.length > 0}
           <div class="form-group">
-            <label>已建立的产品列表 (支持删除产品及其版本)</label>
+            <label>已建立的产品列表 (支持增加版本 / 删除产品)</label>
             <div class="existing-prods-list">
               {#each products as p}
                 <div class="prod-item-row">
                   <div class="prod-item-left">
-                    <span class="prod-code-badge">{p.code.toUpperCase()}</span>
-                    <span class="prod-name-text">{p.name}</span>
+                    <div class="prod-item-header">
+                      <span class="prod-code-badge">{p.code.toUpperCase()}</span>
+                      <span class="prod-name-text">{p.name}</span>
+                    </div>
+                    <div class="prod-versions-row">
+                      {#each getProductVersions(p.id) as v}
+                        <span class="prod-ver-chip">{v.version_name}</span>
+                      {/each}
+                    </div>
+                    {#if addingVersionProductId === p.id}
+                      <div class="add-ver-input-row">
+                        <input
+                          type="text"
+                          class="apple-input add-ver-input"
+                          bind:value={newVersionName}
+                          placeholder="如: 24.2"
+                          on:keydown={(e) => { if (e.key === 'Enter') addVersionToProduct(p.id); if (e.key === 'Escape') addingVersionProductId = null; }}
+                        />
+                        <button type="button" class="mini-btn" on:click={() => addVersionToProduct(p.id)}><Check size={12} /> 添加</button>
+                        <button type="button" class="mini-btn" on:click={() => addingVersionProductId = null}><X size={12} /></button>
+                      </div>
+                    {:else}
+                      <button type="button" class="mini-btn" on:click={() => toggleAddVersion(p.id)}><Plus size={12} /> 添加版本</button>
+                    {/if}
                   </div>
                   <button
                     type="button"
@@ -1091,14 +1151,23 @@
 
   .prod-item-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    padding: 6px 10px;
+    gap: 10px;
+    padding: 8px 10px;
     background: rgba(255, 255, 255, 0.03);
     border-radius: var(--radius-sm);
   }
 
   .prod-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .prod-item-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1116,6 +1185,55 @@
   .prod-name-text {
     font-size: 13px;
     color: var(--text-primary);
+  }
+
+  .prod-versions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .prod-ver-chip {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+  }
+
+  .add-ver-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .add-ver-input {
+    width: 120px;
+    height: 26px;
+    padding: 2px 8px;
+    font-size: 12px;
+  }
+
+  .mini-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px dashed var(--glass-border-hover);
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    align-self: flex-start;
+  }
+
+  .mini-btn:hover {
+    color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    background: rgba(124, 110, 248, 0.1);
   }
 
   .del-prod-btn {
