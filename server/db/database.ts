@@ -312,6 +312,15 @@ export function createVersion(productId: number, versionName: string): Version {
   return db.prepare('SELECT v.*, p.name as product_name FROM versions v JOIN products p ON p.id = v.product_id WHERE v.id = ?').get(info.id) as Version;
 }
 
+export function updateVersion(id: number, versionName: string): Version {
+  db.prepare('UPDATE versions SET version_name = ? WHERE id = ?').run(versionName.trim(), id);
+  return db.prepare('SELECT v.*, p.name as product_name FROM versions v JOIN products p ON p.id = v.product_id WHERE v.id = ?').get(id) as Version;
+}
+
+export function deleteVersion(id: number): void {
+  db.prepare('DELETE FROM versions WHERE id = ?').run(id);
+}
+
 export function getIssueStats() {
   return db.prepare(`
     SELECT

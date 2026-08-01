@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AlertCircle, CheckCircle2, Clock, Plus, X, FileText, Check, ShieldAlert, Trash2, Download } from 'lucide-svelte';
+  import { AlertCircle, CheckCircle2, Clock, Plus, X, FileText, Check, ShieldAlert, Trash2, Download, Pencil } from 'lucide-svelte';
   import StatsCard from './StatsCard.svelte';
   import FilterBar from './FilterBar.svelte';
   import IssueTable from './IssueTable.svelte';
@@ -169,6 +169,8 @@
   // Add version to existing product
   let addingVersionProductId: number | null = null;
   let newVersionName: string = '';
+  let editingVersionId: number | null = null;
+  let editingVersionName: string = '';
 
   function getProductVersions(productId: number) {
     return versions.filter(v => v.product_id === productId);
@@ -202,6 +204,55 @@
     } catch (err: any) {
       toastError(`添加版本失败: ${err.message}`);
     }
+  }
+
+  function startEditVersion(v: any) {
+    editingVersionId = v.id;
+    editingVersionName = v.version_name;
+  }
+
+  async function saveEditVersion(v: any) {
+    const name = editingVersionName.trim();
+    if (!name) {
+      toastError('版本号不能为空');
+      return;
+    }
+    if (name === v.version_name) {
+      editingVersionId = null;
+      return;
+    }
+    try {
+      await fetchJson(`/topology/versions/${v.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionName: name })
+      });
+      editingVersionId = null;
+      await loadMetadata();
+      toastSuccess(`已更新为 ${name}`);
+    } catch (err: any) {
+      toastError(`更新版本失败: ${err.message}`);
+    }
+  }
+
+  function promptDeleteVersion(v: any) {
+    confirmDialog = {
+      open: true,
+      title: '删除版本',
+      message: `确定要删除版本 ${v.version_name} 吗？该版本的问题修复记录也会被移除。`,
+      onConfirm: async () => {
+        try {
+          await fetchJson(`/topology/versions/${v.id}`, { method: 'DELETE' });
+          await loadMetadata();
+          await loadIssues();
+          toastSuccess(`已删除版本 ${v.version_name}`);
+        } catch (err: any) {
+          toastError(`删除版本失败: ${err.message}`);
+        } finally {
+          confirmDialog.open = false;
+        }
+      }
+    };
   }
 
   // Service selection mode: 'existing' or 'custom'
@@ -709,7 +760,26 @@
                     </div>
                     <div class="prod-versions-row">
                       {#each getProductVersions(p.id) as v}
-                        <span class="prod-ver-chip">{v.version_name}</span>
+                        {#if editingVersionId === v.id}
+                          <span class="ver-edit-wrap">
+                            <input
+                              type="text"
+                              class="apple-input ver-edit-input"
+                              bind:value={editingVersionName}
+                              on:keydown={(e) => { if (e.key === 'Enter') saveEditVersion(v); if (e.key === 'Escape') editingVersionId = null; }}
+                            />
+                            <button type="button" class="ver-action-btn" on:click={() => saveEditVersion(v)}><Check size={11} /></button>
+                            <button type="button" class="ver-action-btn" on:click={() => editingVersionId = null}><X size={11} /></button>
+                          </span>
+                        {:else}
+                          <span class="prod-ver-chip">
+                            {v.version_name}
+                            <span class="ver-actions">
+                              <button type="button" class="ver-icon-btn" title="重命名" on:click|stopPropagation={() => startEditVersion(v)}><Pencil size={10} /></button>
+                              <button type="button" class="ver-icon-btn del" title="删除版本" on:click|stopPropagation={() => promptDeleteVersion(v)}><Trash2 size={10} /></button>
+                            </span>
+                          </span>
+                        {/if}
                       {/each}
                     </div>
                     {#if addingVersionProductId === p.id}
@@ -1194,12 +1264,88 @@
   }
 
   .prod-ver-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     font-size: 11px;
-    padding: 1px 8px;
+    padding: 1px 6px 1px 8px;
     border-radius: 999px;
     background: var(--bg-tertiary);
     border: 1px solid var(--glass-border);
     color: var(--text-secondary);
+    transition: border-color var(--transition-fast);
+  }
+
+  .prod-ver-chip:hover {
+    border-color: var(--glass-border-hover);
+  }
+
+  .ver-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .prod-ver-chip:hover .ver-actions {
+    opacity: 1;
+  }
+
+  .ver-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: color var(--transition-fast);
+  }
+
+  .ver-icon-btn:hover {
+    color: var(--accent-blue);
+  }
+
+  .ver-icon-btn.del:hover {
+    color: var(--status-high);
+  }
+
+  .ver-edit-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .ver-edit-input {
+    width: 70px;
+    height: 22px;
+    padding: 1px 6px;
+    font-size: 11px;
+  }
+
+  .ver-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all var(--transition-fast);
+  }
+
+  .ver-action-btn:hover {
+    color: var(--accent-blue);
+    border-color: var(--accent-blue);
   }
 
   .add-ver-input-row {

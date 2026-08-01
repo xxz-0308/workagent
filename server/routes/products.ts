@@ -5,6 +5,8 @@ import {
   deleteProduct,
   getVersions,
   createVersion,
+  updateVersion,
+  deleteVersion,
   getServices,
   getRules,
   updateRule,
@@ -58,6 +60,30 @@ productsRouter.post('/versions', (req, res) => {
     const { productId, versionName } = req.body;
     const ver = createVersion(Number(productId), versionName);
     res.json(ver);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Update version name
+productsRouter.patch('/versions/:id', (req, res) => {
+  try {
+    const { versionName } = req.body;
+    if (!versionName || !versionName.trim()) {
+      return res.status(400).json({ error: 'versionName is required' });
+    }
+    const ver = updateVersion(Number(req.params.id), versionName);
+    res.json(ver);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete version
+productsRouter.delete('/versions/:id', (req, res) => {
+  try {
+    deleteVersion(Number(req.params.id));
+    res.json({ success: true });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
